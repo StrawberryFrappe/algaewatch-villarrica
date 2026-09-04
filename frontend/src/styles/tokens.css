@@ -1,0 +1,132 @@
+/* Design tokens from design_handoff_algaewatch_villarrica/README.md — keep exact. */
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, sans-serif;
+
+  /* Color */
+  --color-text-primary: #FFFFFF;
+  --color-text: #F5F5F7;
+  --color-text-secondary: #E5E5EA;
+  --color-text-tertiary: #C7C7CC;
+  --color-text-tertiary-2: #AEAEB2;
+  --color-text-label: #98989D;
+  --color-text-dim: #8E8E93;
+  --color-accent: #0A84FF;
+  --color-accent-light: #64D2FF;
+
+  /* Risk scale — reserved exclusively for risk, never used for other roles */
+  --risk-muy-bajo: #64D2FF;
+  --risk-bajo: #30D158;
+  --risk-medio: #FF9F0A;
+  --risk-alto: #FF453A;
+
+  /* Surfaces */
+  --surface-panel: rgba(28, 28, 30, 0.58);
+  --surface-panel-soft: rgba(28, 28, 30, 0.55);
+  --surface-map-canvas: rgba(22, 22, 24, 0.45);
+  --surface-card: rgba(58, 58, 60, 0.30);
+  --surface-popup: rgba(28, 28, 30, 0.74);
+  --surface-segmented-track: rgba(118, 118, 128, 0.24);
+  --surface-segmented-active: rgba(120, 120, 128, 0.36);
+  --hairline: rgba(255, 255, 255, 0.12);
+  --hairline-soft: rgba(255, 255, 255, 0.10);
+  --hairline-strong: rgba(255, 255, 255, 0.24);
+  --progress-track: rgba(255, 255, 255, 0.10);
+  --selection: rgba(10, 132, 255, 0.32);
+
+  /* Radii */
+  --radius-pill-seg: 8px;
+  --radius-row: 10px;
+  --radius-chip: 12px;
+  --radius-card: 14px;
+  --radius-panel: 16px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --shadow-content: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-popup: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #000000;
+}
+
+body, input, button {
+  font-family: var(--font-family);
+  font-variant-numeric: tabular-nums;
+}
+
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { color: var(--color-accent-light); }
+
+::selection { background: var(--selection); }
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  /* background is a dynamic fill/track gradient set inline per current value */
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  /* --range-pct is set inline per input, from the current slider value */
+  background: linear-gradient(
+    to right,
+    var(--color-accent) 0%,
+    var(--color-accent) var(--range-pct, 0%),
+    rgba(255, 255, 255, 0.14) var(--range-pct, 0%),
+    rgba(255, 255, 255, 0.14) 100%
+  );
+}
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+}
+input[type='range']::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+
+button { font-family: inherit; }
+
+@keyframes aw-pulse {
+  0% { r: 13; opacity: 0.8; }
+  70%, 100% { r: 32; opacity: 0; }
+}
+
+@keyframes aw-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}

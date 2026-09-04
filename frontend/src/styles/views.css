@@ -1,0 +1,30 @@
+.station-card {
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+}
+
+.model-card {
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+}
+.model-card-eyebrow {
+  font-size: 9.5px;
+  letter-spacing: 0.6px;
+  color: var(--color-text-label);
+}
+
+.metric-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-chip);
+  background: var(--surface-card);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}

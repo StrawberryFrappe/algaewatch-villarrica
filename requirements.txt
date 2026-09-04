@@ -1,0 +1,18 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+httpx
+
+# feature pipeline
+sentinelhub
+cdsapi
+xarray
+rasterio
+numpy
+pandas
+
+# model
+scikit-learn
+xgboost
+joblib
