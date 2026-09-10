@@ -82,13 +82,29 @@ def stations() -> list[dict]:
 def pipeline_split(dataset: pd.DataFrame):
     """The split the audited training path actually performs.
 
-    `src/model/train.py` slices the date-sorted frame at 80% and stops, with no
-    embargo. Reproducing that here — rather than asserting against the embargoed
-    splitter — is what keeps the MI-2 check from grading its own homework.
-    """
-    from src.model.baselines import chronological_split
+    `src/model/train.py` drops rows with a missing target, sorts by date, and
+    slices the last 20% — no embargo. This mirrors those three steps line for
+    line, including the default (quicksort) sort, because that ordering is what
+    every EV figure was measured on.
 
-    return chronological_split(dataset, embargo_days=0)
+    Two reasons it is spelled out here rather than delegated to
+    `chronological_split`. It keeps the MI-2 check from grading its own homework:
+    asserting the embargoed splitter has an embargo proves nothing about the
+    pipeline. And re-deriving the partition is not safe — the default sort is not
+    stable, so sorting an already-sorted frame can permute same-date rows across
+    the 80% boundary. `split_from_frames` exists so callers hand over the rows
+    they used instead.
+    """
+    from src.model.baselines import split_from_frames
+
+    frame = (
+        dataset.dropna(subset=["bloom_7d", "fai_future"])
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+    n_holdout = max(1, int(len(frame) * 0.2))
+    cut = len(frame) - n_holdout
+    return split_from_frames(frame.iloc[:cut], frame.iloc[cut:], embargo_days=0)
 
 
 @pytest.fixture(scope="session")

@@ -140,6 +140,16 @@ def check_no_fabricated_rows(
     do not produce the same float, so agreement at scale means the value was
     held, not measured.
     """
+    if df.empty:
+        # An empty table satisfies "rows == unique rows" vacuously. Reporting
+        # that as a pass would let a broken build produce a clean gate, which is
+        # the failure mode this whole module exists to prevent.
+        return CheckResult(
+            "no_fabricated_rows", False, "PR-3",
+            "No rows to check — an empty table cannot satisfy PR-3.",
+            {"n_rows": 0},
+        )
+
     n_rows = len(df)
     n_unique = len(df.drop_duplicates(list(key_cols)))
     duplicate_lag = (

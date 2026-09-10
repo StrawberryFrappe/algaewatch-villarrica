@@ -61,6 +61,40 @@ class Split:
         }
 
 
+def split_from_frames(
+    train: pd.DataFrame,
+    holdout: pd.DataFrame,
+    embargo_days: int = 0,
+    date_col: str = "date",
+) -> Split:
+    """Wrap a partition a caller already has, computing only its boundary facts.
+
+    This exists so a training routine can hand over **the exact frames it fitted
+    and scored on** instead of asking this module to re-derive them. Re-deriving
+    is not safe: `DataFrame.sort_values` defaults to quicksort, which is not
+    stable, so sorting an already-sorted frame can permute rows that share a date
+    — and this table has four rows per date, one per station. Verified on the
+    committed table: re-sorting changes the ordering, which moves rows across the
+    80% boundary and changes the holdout the baselines would be scored on.
+
+    A baseline measured on a different holdout than the model is not a baseline.
+    """
+    if train.empty or holdout.empty:
+        return Split(train, holdout, embargo_days, None, None, None, 0)
+
+    first_holdout = pd.to_datetime(holdout[date_col]).min()
+    last_train = pd.to_datetime(train[date_col]).max()
+    return Split(
+        train=train,
+        holdout=holdout,
+        embargo_days=embargo_days,
+        last_train_date=last_train.date().isoformat(),
+        first_holdout_date=first_holdout.date().isoformat(),
+        gap_days=int((first_holdout - last_train).days),
+        n_embargoed=0,
+    )
+
+
 def chronological_split(
     df: pd.DataFrame,
     holdout_frac: float = 0.2,
@@ -78,7 +112,13 @@ def chronological_split(
     Rows are removed from the *training* side only. Shrinking the holdout
     instead would move the boundary and quietly change what is being measured.
     """
-    ordered = df.sort_values(date_col).reset_index(drop=True)
+    # `kind="stable"` is load-bearing, not tidiness. `train.py` sorts by date and
+    # then slices positionally; rebuilding the same partition here means sorting
+    # an already-sorted frame, and pandas' default quicksort may permute rows
+    # that share a date. Many rows share a date — one per station — so an
+    # unstable sort could hand the baselines a different holdout than the model
+    # was scored on, and the comparison would quietly stop being like-for-like.
+    ordered = df.sort_values(date_col, kind="stable").reset_index(drop=True)
     n_holdout = max(1, int(len(ordered) * holdout_frac))
     cut = len(ordered) - n_holdout
 

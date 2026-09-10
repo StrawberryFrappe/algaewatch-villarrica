@@ -38,8 +38,16 @@ from src.model.integrity import (
     strict=True,
     reason="MI-1: the regressor is 43% worse than persistence (EV-003). Fixed by BL-003/BL-005.",
 )
-def test_mi1_model_beats_persistence(metrics, embargoed_split) -> None:
-    result = check_beats_persistence(metrics["metrics"], embargoed_split)
+def test_mi1_model_beats_persistence(metrics, pipeline_split) -> None:
+    """Scored on the partition the recorded metrics came from.
+
+    `metrics.json` is produced by `train.py`, which splits without an embargo.
+    Recomputing the baseline on the embargoed split would compare the model's
+    numbers against a baseline measured on different data — a like-for-like
+    comparison is the whole point of MI-1. When BL-006 gives training the
+    embargo, this fixture and that split become the same thing.
+    """
+    result = check_beats_persistence(metrics["metrics"], pipeline_split)
     assert result.passed, result.detail
 
 
@@ -47,8 +55,14 @@ def test_mi1_model_beats_persistence(metrics, embargoed_split) -> None:
     strict=True,
     reason="MI-1: a station-name rule outscores the classifier (EV-002). Fixed by BL-004.",
 )
-def test_mi1_model_beats_trivial_rule(metrics, embargoed_split) -> None:
-    result = check_beats_trivial_rule(metrics["metrics"], embargoed_split)
+def test_mi1_model_beats_trivial_rule(metrics, pipeline_split) -> None:
+    """Same partition as the recorded metrics — see the note above.
+
+    This one matters more than the persistence case: `trivial_rule` picks its
+    group from the training partition, so a different training partition can in
+    principle pick a different group and produce a different score.
+    """
+    result = check_beats_trivial_rule(metrics["metrics"], pipeline_split)
     assert result.passed, result.detail
 
 
@@ -137,3 +151,14 @@ def test_checks_are_omitted_not_passed_when_inputs_are_missing(
     results = run_all(dataset, embargoed_split, metrics["metrics"], bloom_threshold)
     assert len(results) == 6
     assert "station_points_on_water" not in {r.name for r in results}
+
+
+def test_empty_input_fails_rather_than_passing_vacuously(dataset) -> None:
+    """An empty table satisfies "rows == unique rows" trivially.
+
+    Reporting that as a pass would let a broken build produce a clean gate,
+    which is the exact failure mode these checks exist to prevent.
+    """
+    result = check_no_fabricated_rows(dataset.iloc[:0])
+    assert result.passed is False
+    assert "empty" in result.detail.lower()

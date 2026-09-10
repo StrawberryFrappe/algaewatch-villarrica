@@ -153,3 +153,42 @@ def test_real_dataset_reproduces_both_audit_baselines(pipeline_split, metrics) -
         },
     )
     assert verdict == {"persistence": False, "trivial_rule": False}
+
+
+def test_resorting_a_sorted_frame_is_not_a_no_op(dataset) -> None:
+    """Why `split_from_frames` exists rather than re-deriving the partition.
+
+    `DataFrame.sort_values` defaults to quicksort, which is not stable. This
+    table carries four rows per date, one per station, so sorting an
+    already-sorted frame reorders ties — and on the committed data that moves
+    rows across the 80% boundary, changing the holdout. A baseline scored on a
+    different holdout than the model is not a baseline, so `train.py` hands over
+    the frames it used instead of asking this module to rebuild them.
+    """
+    once = dataset.sort_values("date").reset_index(drop=True)
+    twice = once.sort_values("date").reset_index(drop=True)
+    assert not once.equals(twice)
+
+    # Stable sorting is idempotent, which is why chronological_split uses it.
+    stable_once = dataset.sort_values("date", kind="stable").reset_index(drop=True)
+    stable_twice = stable_once.sort_values("date", kind="stable").reset_index(drop=True)
+    assert stable_once.equals(stable_twice)
+
+
+def test_pipeline_split_matches_train_py_partition(dataset, pipeline_split) -> None:
+    """The fixture the MI-1 and MI-2 checks run on is train.py's own partition."""
+    frame = (
+        dataset.dropna(subset=["bloom_7d", "fai_future"])
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+    n_holdout = max(1, int(len(frame) * 0.2))
+    cut = len(frame) - n_holdout
+
+    assert len(pipeline_split.train) == cut
+    assert len(pipeline_split.holdout) == n_holdout
+    pd.testing.assert_frame_equal(
+        pipeline_split.holdout.reset_index(drop=True), frame.iloc[cut:].reset_index(drop=True)
+    )
+    # And it reproduces the seam EV-005 records.
+    assert pipeline_split.gap_days == 0
