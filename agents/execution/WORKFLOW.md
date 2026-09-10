@@ -49,14 +49,16 @@ it. Prefer a temporary commit.
 
 ## Branch Naming
 
-Work lands on **`develop`**. `main` holds released state and is merged into from
-`develop`, not committed to directly.
+Work lands on **`main`** directly. `develop` was retired on 2026-09-10 (`lq`'s
+call): everything on it was already merged to `main`, and a two-person project
+with a shared `main` did not need a second integration branch. The earlier
+"`main` holds released state, merged from `develop`" rule no longer applies.
 
 Branches carry a purpose, and where useful an author slug:
 
-- `develop` — shared integration branch
 - `feat/<slug>-<subject>`, `fix/<slug>-<subject>`, `chore/<slug>-<subject>` for
-  work that needs its own branch before reaching `develop`
+  work that wants isolation before it reaches `main` (optional; short-lived,
+  merged and deleted)
 
 **Do not leave a branch under whatever name the tooling minted.** Claude Code
 creates a session worktree on a branch like `claude/<task>-<hash>`; that is a
