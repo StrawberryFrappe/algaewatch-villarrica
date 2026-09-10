@@ -16,3 +16,6 @@ pandas
 scikit-learn
 xgboost
 joblib
+
+# tests (GATE-TEST / GATE-MODEL)
+pytest
