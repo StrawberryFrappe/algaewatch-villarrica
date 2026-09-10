@@ -65,6 +65,21 @@ def model_candidate() -> CandidateModelResponse:
             detail="No per-pixel candidate in this checkout — run scripts/train_per_pixel.py.",
         )
 
+    try:
+        return _candidate_response(m)
+    except KeyError as exc:
+        # An artifact written by an older or hand-edited schema is a missing
+        # candidate as far as the client is concerned, not a server fault.
+        # Raising 500 here would break the "hide the panel" contract this
+        # endpoint otherwise guarantees, and blank a working dashboard over an
+        # optional model.
+        raise HTTPException(
+            status_code=404,
+            detail=f"Per-pixel metrics.json is missing {exc} — retrain with scripts/train_per_pixel.py.",
+        ) from exc
+
+
+def _candidate_response(m: dict) -> CandidateModelResponse:
     return CandidateModelResponse(
         version=m["version"],
         signal=m["signal"],

@@ -25,8 +25,10 @@ def main() -> int:
     result = fit_and_evaluate(frame)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     torch.save(result["artifact"], ARTIFACTS / "quantile_mlp.pt")
+    # ensure_ascii=False matches src/model/train.py: `caveats` and
+    # `classification_reason` are Spanish and render verbatim in the UI.
     (ARTIFACTS / "metrics.json").write_text(
-        json.dumps(result["metrics"], indent=2) + "\n", encoding="utf-8"
+        json.dumps(result["metrics"], indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     metrics = result["metrics"]
     print(

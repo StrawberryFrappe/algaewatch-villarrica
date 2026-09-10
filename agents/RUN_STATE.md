@@ -134,11 +134,10 @@ both baselines via per-pixel + weather — is at
 
 ## Next Action
 
-**1. Independently review `feat/per-pixel-retrain-verdict` before merging it.**
-Definition of Done §7. It has not been reviewed by anyone but its author, and it
-touches gate code (`src/model/baselines.py`, `tests/test_model_integrity.py`),
-which is exactly the category that produced two false passes in WI-005. Register
-the verdict in `agents/reviews/20260910/` and `reviews_index.md`.
+**1. Merge `demoday`.** It carries the retrain, the serving path and the docs,
+and it has been independently reviewed (APPROVE WITH FIXES, all applied). Nothing
+in it is known-broken. Merging is a judgement call for the owner, not a blocked
+step — the branch is `demoday` precisely because it was cut for a demo.
 
 **2. Decide what to do about `check_no_fabricated_rows` (BL-037).** It fails on
 the per-pixel table with inflation 1.011. Investigated: false positive. 562
@@ -218,10 +217,14 @@ Kept current so another contributor can pick this up mid-flight.
   completed a full 13-month backfill. Note the earlier entry below was itself
   stale: **no `.venv` existed in any of the six checkouts** when this session
   started (EV-022).
-- **Definition of Done §7 — independent review of
-  `feat/per-pixel-retrain-verdict`. OPEN.** Not reviewed by anyone but its
-  author. Subagents were available and were not used; this is recorded as
-  outstanding, not silently downgraded.
+- **Definition of Done §7 — CLEARED 2026-09-10 for `demoday`.** Independent
+  subagent review of the full diff against `32a1af9`: **APPROVE WITH FIXES**, no
+  Critical, no Important. It cleared the branch's central claim (early stopping
+  selects on training data only and cannot leak into the reported MAE) and
+  confirmed the one relaxed gate assertion is a correction rather than a
+  weakening. Three findings, all applied — including a stale `requirements.txt`
+  comment the author had falsified himself on the same branch.
+  `agents/reviews/20260910/implementation-review-demoday.sf.md`.
 - **BL-029, BL-030, BL-031, BL-032 — cleared 2026-09-10** (ADR-lq-0009). The
   target-date embargo, the single-group climatology dispatch, the in-check
   inapplicability guard and the shape-agnostic plumbing tests are all in place;

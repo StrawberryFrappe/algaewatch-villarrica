@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 2ab9bab4906ac674fe9ab4352455484bc4c4e347
+source_sha: 7a44e3bbc876104d98750bcd6d38846f8c3a4a23
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -161,12 +161,11 @@ per-píxel + clima — está en `agents/execution/SESSION_HANDOFF.lq.md`.
 
 ## Próxima Acción
 
-**1. Revisar `feat/per-pixel-retrain-verdict` de forma independiente antes de
-mergear.** Definición de Hecho §7. Nadie más que su autor la revisó, y toca
-código de verificación (`src/model/baselines.py`,
-`tests/test_model_integrity.py`), que es justo la categoría que produjo dos
-falsos pases en WI-005. Registrar el veredicto en `agents/reviews/20260910/` y en
-`reviews_index.md`.
+**1. Mergear `demoday`.** Lleva el reentrenamiento, el camino de serving y la
+documentación, y fue revisada de forma independiente (APPROVE WITH FIXES, todo
+aplicado). Nada en ella está roto conocido. Mergear es una decisión del dueño, no
+un paso bloqueado — la rama se llama `demoday` justamente porque se cortó para
+una demo.
 
 **2. Decidir qué hacer con `check_no_fabricated_rows` (BL-037).** Falla sobre la
 tabla per-píxel con inflación 1,011. Investigado: es un falso positivo. 562
@@ -253,10 +252,15 @@ vuelo.
   completó un backfill entero de 13 meses. Ojo: la entrada anterior estaba a su
   vez desactualizada: **no existía ningún `.venv` en ninguno de los seis
   checkouts** cuando arrancó esta sesión (EV-022).
-- **Definición de Hecho §7 — revisión independiente de
-  `feat/per-pixel-retrain-verdict`. ABIERTO.** Nadie más que su autor la
-  revisó. Había subagentes disponibles y no se usaron; queda registrado como
-  pendiente, no como degradado en silencio.
+- **Definición de Hecho §7 — RESUELTO 2026-09-10 para `demoday`.** Revisión
+  independiente por subagente del diff completo contra `32a1af9`: **APPROVE WITH
+  FIXES**, sin Critical, sin Important. Validó la afirmación central de la rama
+  (el early stopping elige sobre datos de entrenamiento solamente y no puede
+  filtrarse al MAE reportado) y confirmó que la única aserción de gate relajada
+  es una corrección, no un debilitamiento. Tres hallazgos, todos aplicados —
+  incluido un comentario obsoleto en `requirements.txt` que el propio autor había
+  vuelto falso en la misma rama.
+  `agents/reviews/20260910/implementation-review-demoday.sf.md`.
 
 - **BL-029, BL-030, BL-031, BL-032 — liberados el 2026-09-10** (ADR-lq-0009). El
   embargo a la fecha del objetivo, el despacho a climatología en un solo grupo,

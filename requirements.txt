@@ -18,13 +18,20 @@ pandas
 # version and fail to unpickle on a mismatched one (sklearn moves internal
 # modules between minors). Bump this and the artifacts together.
 scikit-learn==1.7.2
-# Pinned: metrics.json publishes MAE as a reproducible claim, and
-# src/model/per_pixel.py seeds torch's RNG directly (manual_seed + a seeded
-# Generator for the DataLoader). Initialisation and optimiser internals shift
-# across torch minors, so an unpinned bump changes the reported number from an
-# unchanged command. Unlike scikit-learn above this is NOT an unpickling
-# constraint: quantile_mlp.pt holds a state_dict and nothing loads it yet.
-# Bump this and re-run the training together.
+# Pinned for two reasons, both of which have to hold.
+#
+# 1. Reproducibility of the reported number. metrics.json publishes MAE as a
+#    reproducible claim, and src/model/per_pixel.py seeds torch's RNG directly
+#    (manual_seed + a seeded Generator for the DataLoader). Initialisation and
+#    optimiser internals shift across torch minors, so an unpinned bump changes
+#    the reported number from an unchanged command.
+# 2. Loading the artifact. src/model/per_pixel_infer.py reads quantile_mlp.pt
+#    with torch.load(..., weights_only=True). That is a state_dict, not a
+#    pickled estimator, so it is a weaker constraint than the scikit-learn pin
+#    above -- but it is a real one: the safe unpickler's allowlist and
+#    state_dict key compatibility are both version-dependent.
+#
+# Bump this, re-run the training, and re-check the load together.
 torch==2.14.0
 joblib
 

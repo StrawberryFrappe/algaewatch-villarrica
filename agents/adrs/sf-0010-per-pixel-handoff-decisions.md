@@ -3,8 +3,9 @@
 ## Status
 
 Accepted 2026-09-10. Resolves the two questions `PARA_JUN.md` §3 left open for
-the reviewer, records three further decisions taken while making the prototype
-runnable, and records what the handoff got wrong about its own environment.
+the reviewer, records the decisions taken while making the prototype runnable and
+then wiring the trained model into it, and records what the handoff got wrong
+about its own environment.
 
 Minted by `sf`. Numbering continues from the highest existing ADR regardless of
 slug (ADR-sf-0005 §2).
@@ -170,6 +171,66 @@ Two defects surfaced while building it:
   have silently disabled early stopping on exactly the small folds where
   overfitting bites hardest.
 
+### D7 — The candidate is served on its own endpoint, not merged into `/model/metrics`
+
+`/risk` and `/forecast` run the legacy Gradient Boosting artifacts. The per-pixel
+model drives nothing. Folding its numbers into `/model/metrics` would have been
+less code and would have implied, on screen and in the payload, that the map runs
+on the per-pixel model.
+
+So `GET /model/candidate` is separate, carries `serving: false`, and the Modelo
+view badges it `NO ALIMENTA EL MAPA`. The two models are also shaped differently —
+the candidate has no confusion matrix and no classification surface (MI-3) — so a
+single schema would have been mostly-optional fields, which is how a null gets
+rendered as a zero.
+
+The endpoint 404s when the candidate is untrained, and the client swallows that
+into "hide the panel". A checkout that has never run `scripts/train_per_pixel.py`
+still serves the dashboard.
+
+### D8 — The artifact stores its scaler as tensors, so the safe loader suffices
+
+`torch.load` has defaulted to `weights_only=True` since torch 2.6; that unpickler
+refuses to execute arbitrary code, and it rejects numpy arrays. The artifact
+originally stored `feature_mean`/`feature_scale` as numpy arrays, which would have
+forced **every** reader — the backend included — to pass `weights_only=False` and
+opt back into arbitrary code execution just to read our own normalisation
+constants.
+
+Storing them as tensors instead keeps the safe default usable. Retraining after
+the format change reproduced `MAE 0.001999 ± 0.001501` bit-for-bit, so no
+recorded figure moved.
+
+The scaler stays *inside* the same file rather than in a second one:
+separable halves are how a model ends up served with the wrong normalisation.
+`tests/test_per_pixel_infer.py` asserts the `weights_only=True` load, so a
+regression to numpy fails the suite instead of quietly demanding an unsafe load.
+
+### D9 — Two latent defects were fixed rather than worked around
+
+Both were found by wiring the model up, and both were user-visible.
+
+**Encoding.** `src/model/infer.py` read `metrics.json` with `Path.read_text()` and
+`src/model/train.py` wrote it with `open(..., "w")` — both the platform default,
+which is cp1252 on Windows. That was harmless while every artifact string was
+ASCII. D4 put Spanish in `caveats`, and the dashboard rendered `tamaño` as
+`tamaÃ±o`. Both ends are now pinned to UTF-8 explicitly. The tempting workaround —
+keeping artifact strings ASCII-only — would have left the bug armed for the next
+person.
+
+**A crash that unmounted the whole dashboard.** `leaflet.heat` sizes a canvas from
+the map container and calls `getImageData` on it; at zero width that throws
+`IndexSizeError`. With no React error boundary anywhere in the tree, React 18
+unmounted the *entire* application — a blank page, with the reason visible only in
+the console. Reproduced by resizing the viewport to 500×400 and back:
+`root.children.length` went to 0.
+
+Fixed at the root (`HeatLayer` waits for a non-zero map size and re-attaches on
+resize) **and** defensively (an `ErrorBoundary` around the map, trends and model
+views). The boundary is not a substitute for the fix; it is the seatbelt, and it
+exists because a blank dashboard during a live demo is the worst failure mode
+this project has.
+
 ## Consequences
 
 - `requirements.txt` pins `torch==2.14.0` with a rationale that matches how the
@@ -178,4 +239,7 @@ Two defects surfaced while building it:
   introduced.
 - BL-026 ships inside the per-pixel branch. Extracting it stays an open option.
 - The Modelo view no longer shows English text or a stale blocker.
-- `EV-022` to `EV-024` record the reproduction commands for the figures above.
+- `EV-022` to `EV-025` record the reproduction commands for the figures above.
+- The trained artifact is loadable and reachable from the API, and the dashboard
+  shows it without implying it drives anything.
+- Two latent defects that would have bitten the next contributor are closed.

@@ -61,3 +61,27 @@ def test_candidate_endpoint_404s_when_untrained(monkeypatch) -> None:
     with pytest.raises(HTTPException) as excinfo:
         router_module.model_candidate()
     assert excinfo.value.status_code == 404
+
+
+def test_candidate_endpoint_404s_on_a_schema_it_cannot_read(monkeypatch) -> None:
+    """A metrics.json from an older or hand-edited schema is a missing
+    candidate, not a server fault.
+
+    Raising 500 here would break the "hide the panel" contract the endpoint
+    otherwise guarantees, and would blank a working dashboard over an optional
+    model. Found by independent review 2026-09-10.
+    """
+    from fastapi import HTTPException
+    import pytest
+
+    from backend.app.routers import model_metrics as router_module
+
+    monkeypatch.setattr(
+        router_module,
+        "get_per_pixel_metrics",
+        lambda: {"version": "truncated", "signal": "x", "target": "y"},
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        router_module.model_candidate()
+    assert excinfo.value.status_code == 404
+    assert "missing" in excinfo.value.detail
