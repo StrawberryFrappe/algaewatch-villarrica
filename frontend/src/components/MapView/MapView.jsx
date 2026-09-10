@@ -29,6 +29,12 @@ export function MapView({
           <span className="map-annot-title">Lago Villarrica · 39°17′S 72°05′O</span>
           <span>Superficie 176 km² · Prof. máx. 165 m · Cuenca Toltén</span>
           <span>Grilla FAI · pasada {passAgeLabel(lastPassDate)}</span>
+          {/* The grid is a single satellite pass, not a series: it does not
+              follow the timeline or the model switch. Saying so beats letting
+              the user conclude the controls are broken. */}
+          <span className="map-annot-note">
+            Grilla fija de esa pasada · no cambia con la fecha ni con el modelo
+          </span>
           {selectedIsProjected && (
             <span className="map-annot-warn">
               Riesgo proyectado {gap != null ? `+${gap} d` : ''} sobre la última pasada

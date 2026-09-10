@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { CircleMarker, MapContainer, Marker, Popup, ScaleControl, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { HeatLayer } from './HeatLayer';
+import { RiskGridLayer } from './RiskGridLayer';
 import { LakeMask } from './LakeMask';
 import { StationCardContent } from './StationCard';
 import { riskPresentation } from '../../utils/risk';
@@ -134,7 +134,7 @@ export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave
       />
       <ScaleControl position="bottomright" imperial={false} />
       <AutoResize />
-      <HeatLayer points={heatPoints} />
+      <RiskGridLayer points={heatPoints} />
       <LakeMask />
       {stations.map((s) => (
         <StationMarker
