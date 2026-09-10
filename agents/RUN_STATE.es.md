@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 104de2b37afe0f9eed2fbd819ca2d7e0735f4fcc
+source_sha: 43c159175e12f9e65f4a29d00730433005757e70
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -10,8 +10,8 @@ translator: agent
 
 ## Fase Actual
 
-**Hay una pasada de preparación para la demo sin commitear en el árbol de trabajo
-de `demoday` (2026-09-10).** Hace dos cosas. Primero, una pasada de pulido del
+**Hay una pasada de preparación para la demo commiteada y pusheada a
+`origin/demoday` (2026-09-10).** Hace dos cosas. Primero, una pasada de pulido del
 frontend: la rampa de riesgo ahora va de azul (bajo) a verde (alto) por pedido
 del dueño, la capa de calor y los marcadores de estación se reajustaron para ser
 legibles sobre la imagen satelital, la vista Modelo se rehízo alrededor de un
@@ -35,8 +35,16 @@ candidato ahora recorre de 1 a 35 y su máximo cae en `sur` entre enero y marzo 
 la bahía propensa a floraciones, en verano austral.
 
 Tests: 103 pasados / 8 xfailed; GATE-MODEL sin cambios con 9 pasados / 8 xfailed.
-Revisado independientemente en tres pasadas. El primer push fue `742cdb6`; el
-trabajo del umbral va encima. **Sin mergear.**
+Revisado independientemente en tres pasadas. Cuatro commits pusheados a
+`origin/demoday`: `742cdb6`, `60a7d24`, `1badabc`, `1c9012e`. **Sin mergear.**
+
+**El handoff para quien retome esto es
+`agents/execution/SESSION_HANDOFF.demoday.md`.** Su punto abierto principal: el
+mapa todavía arrastra el último valor en 316 de 372 fechas del deslizador, lo
+que *es* la línea base de persistencia — o sea que el producto entrega
+persistencia en el 85% de sus fechas mientras explica por qué la persistencia es
+justamente lo que hay que superar. Hacer que el candidato sirva una grilla
+predicha en esas fechas es el siguiente paso real.
 
 ## Fase Anterior
 

@@ -81,4 +81,8 @@ work begins — whichever comes first.
 - SRC-004 — `design_handoff_algaewatch_villarrica/README.md`, map implementation section
 - CONF-003 — recorded conflict in `agents/intake/SOURCE_MANIFEST.md`
 - `frontend/src/components/MapView/LeafletMap.jsx` — Esri tile layers
-- `frontend/src/components/MapView/HeatLayer.jsx` — `leaflet.heat` configuration
+- `frontend/src/components/MapView/RiskGridLayer.jsx` — the FAI raster.
+  Superseded `HeatLayer.jsx` (`leaflet.heat`) in `1badabc`: a heatmap renders
+  accumulated point *density*, so on a regular grid the overlapping pixels'
+  intensities summed and painted the whole lake at max risk regardless of the
+  data. The deleted file is in git history.

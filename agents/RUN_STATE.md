@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-**A demo-prep pass is uncommitted in the working tree on `demoday` (2026-09-10).**
+**A demo-prep pass is committed and pushed to `origin/demoday` (2026-09-10).**
 It does two things. First, a frontend polish pass: the risk ramp is now blue (low)
 → green (high) at the owner's request, the heat layer and station markers were
 retuned to be legible over satellite imagery, the Modelo view was rebuilt around a
@@ -24,8 +24,15 @@ rather than only the newest. Candidate risk spans 1–35 and peaks at `sur` in
 January–March — the bloom-prone bay in austral summer.
 
 Tests 103 passed / 8 xfailed; GATE-MODEL unchanged at 9 passed / 8 xfailed.
-Reviewed independently across three passes. First push was `742cdb6`; the
-threshold work is on top of it. **Not merged.**
+Reviewed independently across three passes. Four commits pushed to
+`origin/demoday`: `742cdb6`, `60a7d24`, `1badabc`, `1c9012e`. **Not merged.**
+
+**The handoff for whoever picks this up is
+`agents/execution/SESSION_HANDOFF.demoday.md`.** Its headline open item: the
+map still forward-fills on 316 of 372 slider dates, which *is* the persistence
+baseline, so the product ships persistence on 85% of its dates while explaining
+why persistence is the thing to beat. Making the candidate serve a predicted
+grid on those dates is the next real step.
 
 ## Earlier Phase
 
