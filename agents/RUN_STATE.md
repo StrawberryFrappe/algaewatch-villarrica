@@ -9,19 +9,21 @@ design review found, two of which produced a false pass. **WI-005 is built**
 (ADR-lq-0009): `src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`, a
 committed candidate table and honest artifacts. The interim lake-mean retrain
 **loses to both baselines** — the reported result under rule MI-1. All of this
-is on branch `fix/sf-model-gate-correctness` (`e29609a`), **independently
-reviewed** — APPROVE WITH FIXES, no Critical, both false passes confirmed closed,
-the legacy path confirmed untouched; the one Important finding (a false-*fail*
-on dense variable-horizon splits) and six Minor findings are fixed on the same
-branch. Ready to merge to `main`.
+was on branch `fix/sf-model-gate-correctness`, **independently reviewed** —
+APPROVE WITH FIXES, no Critical, both false passes confirmed closed, the legacy
+path confirmed untouched; the one Important finding (a false-*fail* on dense
+variable-horizon splits) and six Minor findings fixed on the same branch, then
+**merged to `main` 2026-09-10.** The brief for the next push — retrain to beat
+both baselines via per-pixel + weather — is at
+`agents/execution/SESSION_HANDOFF.lq.md`.
 
 ## Status
 
 - **BL-029 to BL-032 fixed and WI-005 built, 2026-09-10** (ADR-lq-0009), by
-  `lq` standing in for `sf` on the model half. Branch
-  `fix/sf-model-gate-correctness`, **independently reviewed** (APPROVE WITH
-  FIXES, no Critical — `implementation-review.lq.md`), all findings applied,
-  not yet on `main`. The four gate defects — two of them false passes — are
+  `lq` standing in for `sf` on the model half. **Independently reviewed**
+  (APPROVE WITH FIXES, no Critical — `implementation-review.lq.md`), all findings
+  applied, **merged to `main` 2026-09-10.** The four gate defects — two of them
+  false passes — are
   corrected with before/after evidence. The interim lake-mean retrain
   (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`) is honest and
   **loses to persistence and climatology** (EV-021); it satisfies PR-3 and
@@ -102,17 +104,15 @@ branch. Ready to merge to `main`.
 
 ## Next Action
 
-**Merge `fix/sf-model-gate-correctness` (`e29609a` + the review-fix commit) to
-`main`.** The independent implementation review is done — APPROVE WITH FIXES,
-recorded at `agents/reviews/20260910/implementation-review.lq.md` and in
-`reviews_index.md`; all findings applied on the branch.
-
-After that, **WI-011 is the highest-leverage item and it is the user's.** Four
-pip installs — `sentinelhub`, `cdsapi`, `rasterio`, `xarray` — turn working
-credentials into a runnable pipeline, which gives BL-007 the per-pixel grid,
-which turns 34 rows into roughly 65,000 (EV-008) and lets ADR 0004 D3 replace
-the lake-wide sentinel with `pixel_id` — the `unit_col` seam is already in
-`lake_anomaly.py` for exactly that.
+**The next modelling push — retrain to beat *both* baselines — is briefed in
+full at `agents/execution/SESSION_HANDOFF.lq.md`.** In short: the interim
+lake-mean model can't clear climatology because the lake-mean series is noise
+around a slow mean and it has no change-drivers. The real leap is ADR 0004 D3 +
+D4 together — **per-pixel sampling** (BL-007: backfill the FAI grid across all
+56 passes → ~65,000 samples, feed it through the same `build_anomaly_pairs` with
+`unit_col="pixel_id"`) and **ERA5 weather change-drivers** (BL-012). Both are
+blocked on **WI-011** (the user's: `pip install cdsapi rasterio xarray`), plus
+the CDS ERA5 licence and, for BL-008, PyTorch on this machine (ADR 0002).
 
 WI-005 recap (ADR-lq-0009, EV-021): the interim lake-mean retrain is honest and
 does **not** beat persistence (0.0014) or climatology (0.0008) — `mae_fai`
@@ -146,7 +146,8 @@ Kept current so another contributor can pick this up mid-flight.
 | BL-029 to BL-032 gate fixes | done — ADR-lq-0009; both false passes shown fixed; default suite 70 passed / 7 xfailed |
 | WI-005 retrain | done — ADR-lq-0009; loses to both baselines (EV-021); candidate gate 11 passed / 1 skipped / 4 xfailed |
 | Independent review of the BL-029..032 + WI-005 diff | done — APPROVE WITH FIXES, `implementation-review.lq.md`; 1 Important + 6 Minor findings applied |
-| Merge `fix/sf-model-gate-correctness` to `main` | **pending** |
+| Merge `fix/sf-model-gate-correctness` to `main` | done 2026-09-10 |
+| Retrain-to-beat-baselines brief | done — `agents/execution/SESSION_HANDOFF.lq.md` (per-pixel D3 + ERA5 D4, prerequisites, reuse map, constraints, done criteria) |
 
 ## Blockers
 

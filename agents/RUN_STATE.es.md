@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: eea924f5893aab39021c94983a56f12fc8f0b160
+source_sha: 73d8f1f10008fe888dcad541c98c4f0c74712934
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -18,22 +18,23 @@ diseño de WI-005, dos de ellos falsos positivos de paso. **WI-005 está
 construido** (ADR-lq-0009): `src/features/lake_anomaly.py`,
 `src/model/lake_anomaly.py`, una tabla candidata versionada y artefactos
 honestos. El reentrenamiento interino de media de lago **pierde contra ambas
-líneas base** — el resultado reportado bajo la regla MI-1. Todo esto está en la
-rama `fix/sf-model-gate-correctness` (`e29609a`), **revisado de forma
-independiente** — APROBAR CON CORRECCIONES, sin Críticos, ambos falsos positivos
-confirmados como cerrados, la ruta legada confirmada intacta; el único hallazgo
-Importante (un falso *negativo* en particiones densas de horizonte variable) y
-seis hallazgos Menores están corregidos en la misma rama. Listo para integrar a
-`main`.
+líneas base** — el resultado reportado bajo la regla MI-1. Todo esto estaba en
+la rama `fix/sf-model-gate-correctness`, **revisado de forma independiente** —
+APROBAR CON CORRECCIONES, sin Críticos, ambos falsos positivos confirmados como
+cerrados, la ruta legada confirmada intacta; el único hallazgo Importante (un
+falso *negativo* en particiones densas de horizonte variable) y seis hallazgos
+Menores corregidos en la misma rama, luego **integrado a `main` el 2026-09-10.**
+El brief para el próximo empujón — reentrenar para superar ambas líneas base vía
+per-píxel + clima — está en `agents/execution/SESSION_HANDOFF.lq.md`.
 
 ## Estado
 
 - **BL-029 a BL-032 corregidos y WI-005 construido, 2026-09-10** (ADR-lq-0009),
-  por `lq` haciendo las veces de `sf` en la mitad del modelo. Rama
-  `fix/sf-model-gate-correctness`, **revisada de forma independiente** (APROBAR
-  CON CORRECCIONES, sin Críticos — `implementation-review.lq.md`), todos los
-  hallazgos aplicados, todavía no en `main`. Los cuatro defectos de la
-  verificación — dos de ellos falsos positivos de paso — están corregidos con
+  por `lq` haciendo las veces de `sf` en la mitad del modelo. **Revisada de
+  forma independiente** (APROBAR CON CORRECCIONES, sin Críticos —
+  `implementation-review.lq.md`), todos los hallazgos aplicados, **integrada a
+  `main` el 2026-09-10.** Los cuatro defectos de la verificación — dos de ellos
+  falsos positivos de paso — están corregidos con
   evidencia de antes/después. El reentrenamiento interino de media de lago
   (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`) es honesto y
   **pierde contra persistencia y climatología** (EV-021); cumple PR-3 y descarta
@@ -128,18 +129,16 @@ seis hallazgos Menores están corregidos en la misma rama. Listo para integrar a
 
 ## Próxima Acción
 
-**Integrar `fix/sf-model-gate-correctness` (`e29609a` + el commit de
-correcciones de revisión) a `main`.** La revisión de implementación
-independiente está hecha — APROBAR CON CORRECCIONES, registrada en
-`agents/reviews/20260910/implementation-review.lq.md` y en `reviews_index.md`;
-todos los hallazgos aplicados en la rama.
-
-Tras eso, **WI-011 es el ítem de mayor apalancamiento y le corresponde al
-usuario.** Cuatro instalaciones de pip — `sentinelhub`, `cdsapi`, `rasterio`,
-`xarray` — convierten credenciales que funcionan en un pipeline ejecutable, lo
-que le da a BL-007 la grilla por píxel, lo que convierte 34 filas en unas 65.000
-(EV-008) y permite que ADR 0004 D3 reemplace el centinela de lago completo por
-`pixel_id` — la costura `unit_col` ya está en `lake_anomaly.py` para eso.
+**El próximo empujón de modelado — reentrenar para superar *ambas* líneas base —
+está briefeado por completo en `agents/execution/SESSION_HANDOFF.lq.md`.** En
+resumen: el modelo interino de media de lago no puede pasar a la climatología
+porque la serie de media de lago es ruido alrededor de una media que decae lento
+y no tiene change-drivers. El salto real es ADR 0004 D3 + D4 juntos — **muestreo
+por píxel** (BL-007: rellenar la grilla FAI sobre las 56 pasadas → ~65.000
+muestras, pasarla por el mismo `build_anomaly_pairs` con `unit_col="pixel_id"`) y
+**clima de ERA5 como change-drivers** (BL-012). Ambos bloqueados por **WI-011**
+(del usuario: `pip install cdsapi rasterio xarray`), más la licencia de ERA5 de
+CDS y, para BL-008, PyTorch en esta máquina (ADR 0002).
 
 Resumen de WI-005 (ADR-lq-0009, EV-021): el reentrenamiento interino de media de
 lago es honesto y **no** le gana a la persistencia (0,0014) ni a la climatología
@@ -176,7 +175,8 @@ vuelo.
 | Correcciones de verificación BL-029 a BL-032 | hecho — ADR-lq-0009; ambos falsos positivos demostrados corregidos; suite por defecto 70 pasaron / 7 xfailed |
 | Reentrenamiento WI-005 | hecho — ADR-lq-0009; pierde contra ambas líneas base (EV-021); gate candidato 11 pasaron / 1 omitido / 4 xfailed |
 | Revisión independiente del diff de BL-029..032 + WI-005 | hecho — APROBAR CON CORRECCIONES, `implementation-review.lq.md`; 1 Importante + 6 Menores aplicados |
-| Integrar `fix/sf-model-gate-correctness` a `main` | **pendiente** |
+| Integrar `fix/sf-model-gate-correctness` a `main` | hecho 2026-09-10 |
+| Brief de reentrenamiento para superar las líneas base | hecho — `agents/execution/SESSION_HANDOFF.lq.md` (per-píxel D3 + ERA5 D4, prerrequisitos, mapa de reúso, restricciones, criterios de hecho) |
 
 ## Bloqueadores
 
