@@ -1,0 +1,122 @@
+{
+  "version": "per-pixel-quantile-mlp-v1",
+  "signal": "per-pixel FAI with ERA5-Land change drivers",
+  "target": "standardised causal anomaly of per-pixel FAI at the horizon",
+  "target_kind": "continuous",
+  "fai_alert_threshold": null,
+  "classification": null,
+  "classification_reason": "No alert threshold is baked into training; policy threshold remains downstream (MI-3).",
+  "n_pairs": 56668,
+  "n_pixels": 1866,
+  "n_anchor_dates": 34,
+  "date_range": {
+    "start": "2025-11-25",
+    "end": "2026-08-17"
+  },
+  "features_used": [
+    "anomaly_now",
+    "horizon_days",
+    "baseline_mean",
+    "baseline_std",
+    "temp_c",
+    "precip_mm",
+    "wind_kmh",
+    "lat",
+    "lng",
+    "doy_sin",
+    "doy_cos"
+  ],
+  "quantiles": [
+    0.1,
+    0.5,
+    0.9
+  ],
+  "training": {
+    "framework": "PyTorch",
+    "epochs": 80,
+    "seed": 20260910
+  },
+  "cv": {
+    "scheme": "expanding-window target-date embargo + rotating 2x2 spatial holdout",
+    "n_folds": 4,
+    "folds": [
+      {
+        "fold": 1,
+        "held_spatial_block": 0,
+        "first_validation_date": "2026-01-19",
+        "last_validation_date": "2026-02-06",
+        "max_training_target_date": "2026-01-17",
+        "n_train": 14024,
+        "n_validation": 473,
+        "mae_fai": 0.001444,
+        "persistence_mae_fai": 0.001221,
+        "climatology_mae_fai": 0.001543,
+        "q10_q90_coverage": 0.537
+      },
+      {
+        "fold": 2,
+        "held_spatial_block": 1,
+        "first_validation_date": "2026-02-13",
+        "last_validation_date": "2026-03-08",
+        "max_training_target_date": "2026-02-06",
+        "n_train": 18083,
+        "n_validation": 2115,
+        "mae_fai": 0.004568,
+        "persistence_mae_fai": 0.002128,
+        "climatology_mae_fai": 0.001882,
+        "q10_q90_coverage": 0.8279
+      },
+      {
+        "fold": 3,
+        "held_spatial_block": 2,
+        "first_validation_date": "2026-03-25",
+        "last_validation_date": "2026-05-09",
+        "max_training_target_date": "2026-03-13",
+        "n_train": 28550,
+        "n_validation": 1982,
+        "mae_fai": 0.001192,
+        "persistence_mae_fai": 0.001586,
+        "climatology_mae_fai": 0.000929,
+        "q10_q90_coverage": 0.9702
+      },
+      {
+        "fold": 4,
+        "held_spatial_block": 3,
+        "first_validation_date": "2026-05-14",
+        "last_validation_date": "2026-08-17",
+        "max_training_target_date": "2026-04-09",
+        "n_train": 19769,
+        "n_validation": 5976,
+        "mae_fai": 0.000792,
+        "persistence_mae_fai": 0.000673,
+        "climatology_mae_fai": 0.000828,
+        "q10_q90_coverage": 0.9188
+      }
+    ]
+  },
+  "metrics": {
+    "mae_fai": 0.001999,
+    "mae_fai_cv_std": 0.001501,
+    "q10_q90_coverage": 0.8135,
+    "mean_interval_width_fai": 0.008999,
+    "precision": null,
+    "recall": null,
+    "f1_score": null,
+    "auc_roc": null
+  },
+  "baselines": {
+    "persistence": {
+      "rule": "fai_future == fai_now",
+      "mae_fai": 0.001402
+    },
+    "climatology": {
+      "rule": "fai_future == causal per-pixel baseline mean",
+      "mae_fai": 0.001296
+    }
+  },
+  "beats_baselines": {
+    "persistence": false,
+    "climatology": false
+  },
+  "caveats": "TRL 2 \u2014 not validated in the field. Pixel rows are spatially autocorrelated and are not independent samples. Metrics use target-date embargo and held-out 2x2 lake regions. ERA5-Land is a coarse bbox mean, and overlapping anchor/target dates still induce temporal residual dependence (BL-033)."
+}
