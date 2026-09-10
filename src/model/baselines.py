@@ -238,6 +238,19 @@ def trivial_rule(
     if train.empty or holdout.empty:
         return {"available": False, "reason": "empty partition"}
 
+    # BL-035: a continuous-target candidate table carries no `bloom_7d`. The
+    # integrity checks already return applicable=False for that case, but this
+    # function is reached through `compute()` before any of them run, so an
+    # unguarded groupby raised KeyError and took the whole gate down -- a gate
+    # that crashes reports nothing, which is worse than an honest failure.
+    # Same defect shape as BL-030/BL-031: the guard existed one layer up only.
+    missing = [c for c in (label_col, group_col) if c not in train.columns or c not in holdout.columns]
+    if missing:
+        return {
+            "available": False,
+            "reason": f"no {'/'.join(missing)} column: continuous target, trivial location rule inapplicable",
+        }
+
     rates = train.groupby(group_col)[label_col].mean()
     if rates.empty:
         return {"available": False, "reason": "no groups in training partition"}

@@ -282,7 +282,12 @@ def test_gate_runs_and_reports_every_check(
     assert CORE_CHECKS <= names
     assert CLASSIFICATION_CHECKS.issubset(names) == ("bloom_7d" in dataset.columns)
     assert "station_points_on_water" in names
-    assert ("label_not_stratified_by_station" in names) == (n_groups >= 2)
+    # BL-036: stratification needs BOTH >= 2 spatial groups AND a label to
+    # stratify. BL-032 made this shape-agnostic across group count but assumed a
+    # label was always present; a continuous-target candidate has 1,866 groups
+    # and no `bloom_7d`, and the check correctly returns applicable=False there.
+    has_label = "bloom_7d" in dataset.columns
+    assert ("label_not_stratified_by_station" in names) == (n_groups >= 2 and has_label)
     assert all(isinstance(r, CheckResult) for r in results)
     assert all(r.detail and r.rule and r.measured for r in results)
     assert all(r.applicable for r in results)

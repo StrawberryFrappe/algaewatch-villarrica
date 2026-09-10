@@ -250,7 +250,11 @@ def collect_era5_days(dates: list[str], out_dir: Path = RAW_DIR) -> pd.DataFrame
         print(f"  [ok] {month}: {len(frame)}/{len(month_dates)} requested days")
 
     out = pd.concat(frames, ignore_index=True).sort_values("date", kind="stable")
-    out = requested[["date"]].merge(out, on="date", how="left").drop(columns="month")
+    # Left-join onto the requested dates so the output is ordered by request and
+    # a silently absent day surfaces as NaN below rather than as a short frame.
+    # `requested[["date"]]` already projects `month` away; the loaded frames never
+    # carried it, so there is nothing left to drop here.
+    out = requested[["date"]].merge(out, on="date", how="left")
     missing = out.loc[out[["temp_c", "precip_mm", "wind_kmh"]].isna().any(axis=1), "date"]
     if len(missing):
         raise ValueError(f"ERA5 is incomplete for: {', '.join(missing)}")
