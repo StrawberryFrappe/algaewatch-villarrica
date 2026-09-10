@@ -18,6 +18,10 @@ All run from the repository root and require no credentials.
 | EV-010 | 2026-09-09 | Harness kernel cloned from branch `testing`, commit `a5f428d`, byte-identical to the copies installed in two other local projects | The mounted harness derives from the intended kernel version | `agents/reviews/20260909/capability_scan.md` |
 | EV-011 | 2026-09-09 | 218 non-null station readings, not 224: pucon 54, norte 56, tolten 54, sur 54. Six cells are null where no water pixel was found | Corrects a figure that had been stated as 56 x 4 assuming no gaps | `data/processed/fai_series_raw.csv` |
 | EV-012 | 2026-09-09 | 2,479 lines of Python, JavaScript and JSX (1,503 Python); 2,924 including CSS | Corrects an unsourced size figure | Working tree |
+| EV-014 | 2026-09-10 | Distance from each station coordinate to the nearest sampled water pixel: tolten 0.07 km, norte 0.15 km, **pucon 0.77 km, sur 0.98 km**. `sur` lies south of the lake's southernmost water pixel. On the 2026-08-22 scene the lake mean FAI is 0.000267 and 0.38% of 1,860 water pixels clear the bloom threshold, while `fai_pucon` reads 0.0585 and `fai_sur` 0.0567 — both above that same scene's p99 of 0.0019 | Two of the four station sample points are not on the lake, and their readings are shoreline vegetation. This is upstream of EV-001: the label is close to "is this station sur or pucon", and the pooled threshold is calibrated on the contamination | `data/processed/fai_grid_latest.csv`, `data/processed/fai_series_raw.csv`, `src/features/stations.py` |
+| EV-015 | 2026-09-10 | The CDSE token endpoint returns HTTP 200 with an `access_token` for the credentials in `.env` | Copernicus Data Space access is available. The WI-002 credential blocker recorded in `RUN_STATE.md` was stale | `.env`, one directory above the repository root |
+| EV-016 | 2026-09-10 | `python -m pytest -q` reports 36 passed, 7 xfailed | The baseline and integrity checks are permanent and re-runnable, satisfying BL-002. The seven xfails are the GATE-MODEL checks the legacy dataset does not pass; they are `strict`, so a fix reports XPASS as a failure | `tests/` |
+| EV-017 | 2026-09-10 | `torch 2.14.0+cu126`, `torch.cuda.is_available()` true, GeForce GTX 1650 (sm_75, 4.3 GB), GPU matmul executed | PyTorch is installed with working CUDA, clearing WI-010 / BL-024 on the owner's machine | Local environment; recorded in `agents/local/CAPABILITIES.md` |
 
 ## Reproduction
 
@@ -117,6 +121,72 @@ Expect mean CV AUC ≈ 0.99 against temporal holdout AUC ≈ 0.90. Reproduced
 figure is inflated by shuffled folds over forward-filled duplicate rows (EV-004,
 EV-005). Both numbers come from the audited pipeline and neither is a
 performance claim.
+
+EV-014, EV-016, and every check behind EV-001 to EV-005 and EV-009 now also run
+as a test suite, which is the shortest reproduction path for all of them:
+
+```bash
+python -m pytest -q
+```
+
+EV-014 — station provenance, standalone:
+
+```bash
+python -c "
+import sys, math; sys.path.insert(0, '.')
+import numpy as np, pandas as pd
+from src.features.stations import STATIONS
+from src.model.integrity import _haversine_km
+g = pd.read_csv('data/processed/fai_grid_latest.csv')
+r = pd.read_csv('data/processed/fai_series_raw.csv')
+for s in STATIONS:
+    d = min(_haversine_km(s.lat, s.lng, la, lo) for la, lo in zip(g.lat, g.lng))
+    print('%-7s %.3f km' % (s.id, d))
+date = g.date.iloc[0]
+row = r[r.date == date].iloc[0]
+print('scene', date, 'lake_mean', round(row.lake_mean_fai, 6), 'p99', round(float(np.percentile(g.fai, 99)), 5))
+print('fai_sur', round(row.fai_sur, 4), 'fai_pucon', round(row.fai_pucon, 4))
+"
+```
+
+EV-015 — Copernicus credentials. Prints only the status code, never a secret:
+
+```bash
+python -c "
+import httpx
+from dotenv import find_dotenv, dotenv_values
+v = dotenv_values(find_dotenv())
+r = httpx.post('https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token',
+               data={'grant_type': 'client_credentials', 'client_id': v['CDSE_CLIENT_ID'],
+                     'client_secret': v['CDSE_CLIENT_SECRET']}, timeout=30)
+print(r.status_code, 'access_token' in r.text)
+"
+```
+
+EV-017 — PyTorch and CUDA:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+### Figure drift recorded 2026-09-10
+
+Regenerating `src/model/artifacts/metrics.json` from the committed
+`training_dataset.csv` reproduces precision, recall, F1, AUC and the confusion
+matrix exactly, and moves two figures:
+
+| Figure | Committed 2026-09-04 | Reproduced 2026-09-10 |
+|---|---|---|
+| `mae_fai` (EV-003's comparison target) | 0.00865 | **0.00867** |
+| mean CV AUC (EV-013) | 0.9922 | **0.9925** |
+
+The committed artifact already disagreed with this index before the change:
+EV-013 records the audit's own 2026-09-09 reproduction as 0.9925, which is the
+new number, not the old one. The most likely cause is a scikit-learn version
+difference between the original 2026-09-04 run and the current environment
+(1.7.2). Neither figure changes any conclusion — the regressor still loses to
+persistence at 0.00603, by a wider margin — but both are recorded here rather
+than silently superseded, per the rule below.
 
 ## Rules
 
