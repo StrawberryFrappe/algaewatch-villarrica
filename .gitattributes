@@ -13,3 +13,10 @@ AGENTS.md       text eol=lf
 AGENTS.es.md    text eol=lf
 agents/**/*.md  text eol=lf
 agents/**/*.py  text eol=lf
+
+# The SYSTEM_OVERVIEW pair is a GATE-I18N translation pair. check_translations.py
+# normalizes before hashing, so the gate is safe either way, but pinning eol keeps
+# the hand recipe in agents/i18n/TRANSLATION_PROTOCOL.md (git hash-object
+# --no-filters) agreeing with it on every checkout. See EV-018.
+SYSTEM_OVERVIEW.md      text eol=lf
+SYSTEM_OVERVIEW.es.md   text eol=lf
