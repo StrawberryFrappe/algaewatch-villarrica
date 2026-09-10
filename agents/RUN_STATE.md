@@ -4,12 +4,31 @@
 
 Harness accepted. Implementation under way on `sf`'s half. **WI-004 is done** —
 the baselines and the model-integrity checks are a permanent test suite.
-**WI-005 is designed and blocked**: its signal and scope are settled in
-ADR-sf-0008, and a design review found three defects in already-committed code
-(BL-029 to BL-031) that must be fixed before any retrain can be judged honestly.
+**BL-029 to BL-032 are fixed** — the four gate-correctness defects the WI-005
+design review found, two of which produced a false pass. **WI-005 is built**
+(ADR-lq-0009): `src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`, a
+committed candidate table and honest artifacts. The interim lake-mean retrain
+**loses to both baselines** — the reported result under rule MI-1. All of this
+was on branch `fix/sf-model-gate-correctness`, **independently reviewed** —
+APPROVE WITH FIXES, no Critical, both false passes confirmed closed, the legacy
+path confirmed untouched; the one Important finding (a false-*fail* on dense
+variable-horizon splits) and six Minor findings fixed on the same branch, then
+**merged to `main` 2026-09-10.** The brief for the next push — retrain to beat
+both baselines via per-pixel + weather — is at
+`agents/execution/SESSION_HANDOFF.lq.md`.
 
 ## Status
 
+- **BL-029 to BL-032 fixed and WI-005 built, 2026-09-10** (ADR-lq-0009), by
+  `lq` standing in for `sf` on the model half. **Independently reviewed**
+  (APPROVE WITH FIXES, no Critical — `implementation-review.lq.md`), all findings
+  applied, **merged to `main` 2026-09-10.** The four gate defects — two of them
+  false passes — are
+  corrected with before/after evidence. The interim lake-mean retrain
+  (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`) is honest and
+  **loses to persistence and climatology** (EV-021); it satisfies PR-3 and
+  drops the location-proxy label. It is not shippable and does not fill the four
+  station cards. `unit_col` seam is in place for ADR 0004 D3 (`pixel_id`).
 - **Harness accepted by the user on 2026-09-10**, clearing GATE-HM. Kernel
   `5dee2cf`, two contributors, English canonical with Spanish siblings.
 - **GATE-LOCAL was not actually clear when this session began.** The previous
@@ -85,31 +104,25 @@ ADR-sf-0008, and a design review found three defects in already-committed code
 
 ## Next Action
 
-Fix **BL-029, BL-030, BL-031 and BL-032**, in that order, before implementing
-WI-005. All four are corrections to the gate and its baselines; two of them
-currently produce a false pass, which is worse than a failure. The gate is what
-makes a retrain checkable, so it has to be right first.
+**The next modelling push — retrain to beat *both* baselines — is briefed in
+full at `agents/execution/SESSION_HANDOFF.lq.md`.** In short: the interim
+lake-mean model can't clear climatology because the lake-mean series is noise
+around a slow mean and it has no change-drivers. The real leap is ADR 0004 D3 +
+D4 together — **per-pixel sampling** (BL-007: backfill the FAI grid across all
+56 passes → ~65,000 samples, feed it through the same `build_anomaly_pairs` with
+`unit_col="pixel_id"`) and **ERA5 weather change-drivers** (BL-012). Both are
+blocked on **WI-011** (the user's: `pip install cdsapi rasterio xarray`), plus
+the CDS ERA5 licence and, for BL-008, PyTorch on this machine (ADR 0002).
 
-Then implement WI-005 per ADR-sf-0008: a new `lake_anomaly.py` module under `src/features/`, with
-no `sentinelhub` import, parameterised on a spatial-unit column so ADR 0004 D3
-substitutes `pixel_id` rather than forcing a rewrite; a causal rolling baseline
-from observations strictly **before** `t`; Ridge rather than GradientBoosting on
-35 rows; `mae_fai` with its CV spread as the headline and the classification
-figures `null` under PR-3. Honest artifacts go to a new directory —
-`src/model/artifacts/` must not be overwritten, because the backend loads it at
-import and serves per-station, so a lake-wide model cannot fill four station
-cards. Rewiring the serving path is not WI-005.
+WI-005 recap (ADR-lq-0009, EV-021): the interim lake-mean retrain is honest and
+does **not** beat persistence (0.0014) or climatology (0.0008) — `mae_fai`
+0.0039 ± 0.0021 over 4-fold expanding CV. It fixes fabrication (PR-3) and the
+location-proxy label; it is not a shippable model, and it does not fill the
+dashboard's four station cards. `src/model/artifacts/` (the backend's) is
+byte-unchanged; honest artifacts are in `src/model/artifacts/lake_anomaly/`.
 
-**WI-011 is the highest-leverage item on the board and it is the user's.** Four
-installs — `sentinelhub`, `cdsapi`, `rasterio`, `xarray` — turn working
-credentials into a runnable pipeline, which gives BL-007 the per-pixel grid, which
-turns 35 rows into roughly 65,000 (EV-008).
-
-`lq`'s half has moved: ADR 0003 accepted, WI-008 and WI-009 done, plus a
-light-theme pass (WI-013). Merged into `develop` at the end of this session.
-
-A session handoff covering what was done, what the backlog expects next, and
-how to resume from `develop` is at `agents/execution/SESSION_HANDOFF.sf.md`.
+`lq`'s half: ADR 0003 accepted, WI-008 / WI-009 / WI-013 done. `develop` was
+retired 2026-09-10 — work lands on `main` directly (`WORKFLOW.md`).
 
 ## Progress Checklist
 
@@ -129,22 +142,27 @@ Kept current so another contributor can pick this up mid-flight.
 | Independent review of the WI-004 diff | done — APPROVE WITH FIXES, 3 findings, all resolved in `c49c9a5` |
 | GATE-I18N hashing fix | done — EV-018, commit `c875514` |
 | WI-005 signal and scope | done — ADR-sf-0008, user-approved |
-| WI-005 design review | done — three committed-code defects found, BL-029 to BL-031 |
-| WI-005 retrain | **blocked** on BL-029, BL-030, BL-031, BL-032 |
+| WI-005 design review | done — four committed-code defects found, BL-029 to BL-032 |
+| BL-029 to BL-032 gate fixes | done — ADR-lq-0009; both false passes shown fixed; default suite 70 passed / 7 xfailed |
+| WI-005 retrain | done — ADR-lq-0009; loses to both baselines (EV-021); candidate gate 11 passed / 1 skipped / 4 xfailed |
+| Independent review of the BL-029..032 + WI-005 diff | done — APPROVE WITH FIXES, `implementation-review.lq.md`; 1 Important + 6 Minor findings applied |
+| Merge `fix/sf-model-gate-correctness` to `main` | done 2026-09-10 |
+| Retrain-to-beat-baselines brief | done — `agents/execution/SESSION_HANDOFF.lq.md` (per-pixel D3 + ERA5 D4, prerequisites, reuse map, constraints, done criteria) |
 
 ## Blockers
 
-- **BL-029, BL-030, BL-031, BL-032 — the gate's own correctness.** Two of the
-  four produce a false pass rather than a failure: `chronological_split` embargoes
-  the feature date instead of the target date and `check_chronological_split`
-  compares only against the constant `HORIZON_DAYS = 7`; and
-  `check_label_not_stratified_by_station` reports a 0.000 spread as a pass on a
-  single-group table. These block WI-005 and, through it, BL-003 to BL-006.
-- **WI-011 / BL-028 — the feature pipeline cannot run on this machine.**
-  `sentinelhub`, `cdsapi`, `rasterio` and `xarray` are all absent from the
-  interpreter on PATH and there is no virtual environment. Credentials working
-  does not mean collection working. This blocks BL-007, BL-012 and BL-014, and
-  therefore BL-008 in practice.
+- **BL-029, BL-030, BL-031, BL-032 — cleared 2026-09-10** (ADR-lq-0009). The
+  target-date embargo, the single-group climatology dispatch, the in-check
+  inapplicability guard and the shape-agnostic plumbing tests are all in place;
+  both false passes are demonstrated fixed. No longer block BL-003 to BL-006 or
+  WI-005 — WI-005 is built.
+- **WI-011 / BL-028 — the feature pipeline still cannot run.** On `lq`'s `.venv`
+  (2026-09-10) `sentinelhub` 3.11.5 is present but `cdsapi`, `rasterio` and
+  `xarray` are not, so `python -c "import sentinelhub, cdsapi, rasterio, xarray"`
+  still fails. Credentials working does not mean collection working. Blocks
+  BL-007, BL-012, BL-014, and BL-008 in practice. (The earlier "no virtual
+  environment" note described `sf`'s machine; corrected here — a `.venv` exists
+  on `lq`'s checkout and runs the tests and both retrains.)
 - **WI-012 / BL-027 — station coordinates.** Blocked on the real GPS arriving
   with the SNIA CSVs. Until then, ADR-sf-0007 disqualifies station-point FAI as a
   training signal, and `check_station_points_on_water` enforces it.
@@ -158,7 +176,18 @@ Kept current so another contributor can pick this up mid-flight.
 - `python agents/check_translations.py` — 5 of 5 current, after the hashing fix
   in `c875514`. Re-verified by rewriting a source as CRLF and confirming the gate
   stays green, so this figure is now transferable between checkouts.
-- `python -m pytest -q` — 36 passed, 7 xfailed (EV-016).
+- `python -m pytest -q` — **70 passed, 7 xfailed** on `lq`'s `.venv` (py3.13,
+  scikit-learn 1.7.2). Was 36/7 at EV-016; +34 from the BL-029..032 gate fixes,
+  WI-005, and the review-fix regression/artifact tests.
+- **Candidate GATE-MODEL run** —
+  `ALGAEWATCH_DATASET=data/processed/lake_anomaly_dataset.csv`
+  `ALGAEWATCH_METRICS=src/model/artifacts/lake_anomaly/metrics.json`
+  `python -m pytest -q tests/test_model_integrity.py` → **11 passed, 1 skipped,
+  4 xfailed**. The lake-mean retrain passes `no_fabricated_rows` (PR-3) and
+  `label_not_a_proxy` (inapplicable, one unit); still xfails MI-1 vs persistence,
+  the trivial-rule check (f1 null), the constant-label shortcut check, and
+  station provenance. The MI-2 test is skipped — its `pipeline_split` fixture is
+  a four-station path WI-005 does not use.
 - Model artifacts regenerated from the committed `training_dataset.csv`.
   Precision, recall, F1, AUC and the confusion matrix reproduce exactly;
   `mae_fai` moved 0.00865 → 0.00867 and mean CV AUC 0.9922 → 0.9925. The
@@ -170,7 +199,10 @@ Kept current so another contributor can pick this up mid-flight.
   would have rebuilt and overwritten the table every evidence figure is pinned to.
 - The backend load path still works against the regenerated artifacts
   (`src.model.infer.load_artifacts`, `predict_risk`).
-- **Application code has now been modified**, for the first time since the fork:
-  `src/model/train.py` and the artifacts under `src/model/artifacts/`, plus the
-  new modules and tests. `src/features/`, `backend/`, `frontend/`, `scripts/` and
-  `data/` remain as the original author left them.
+- **Application code modified this session** (branch `fix/sf-model-gate-correctness`):
+  `src/model/baselines.py`, `src/model/integrity.py` (BL-029..032); new
+  `src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`,
+  `scripts/train_lake_anomaly.py` (WI-005); new tests. New committed data:
+  `data/processed/lake_anomaly_dataset.csv`, `src/model/artifacts/lake_anomaly/`.
+  `src/model/artifacts/` (the backend's) and `src/model/train.py` are
+  byte-unchanged from the WI-004 state; `backend/`, `frontend/` untouched by `sf`.

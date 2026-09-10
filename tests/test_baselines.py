@@ -14,9 +14,11 @@ import pytest
 
 from src.model.baselines import (
     HORIZON_DAYS,
+    Split,
     beats_baselines,
     chronological_split,
     persistence_mae,
+    split_from_frames,
     trivial_rule,
 )
 
@@ -80,6 +82,75 @@ class TestChronologicalSplit:
         assert empty.summary()["n_holdout"] == 0
 
 
+def _variable_horizon(n_days: int = 80, horizon: int = 8) -> pd.DataFrame:
+    """One lake-wide unit, dense daily dates, an explicit per-row horizon.
+
+    Shaped like WI-005's lake-anomaly table (ADR-sf-0008): a single spatial
+    unit and a `horizon_days` column, because the honest pairs span 5 to 9 days
+    rather than a fixed 7 (EV-019).
+    """
+    dates = pd.date_range("2026-01-01", periods=n_days, freq="D")
+    return pd.DataFrame(
+        {
+            "date": [d.date().isoformat() for d in dates],
+            "unit": "lake",
+            "fai_now": 0.0,
+            "fai_future": 0.0,
+            "bloom_7d": 0,
+            "horizon_days": horizon,
+        }
+    )
+
+
+class TestChronologicalSplitTargetEmbargo:
+    """BL-029: the embargo must clear a row's *target* date, not its feature date.
+
+    `chronological_split` filtered training rows on ``t <= first_holdout -
+    embargo_days`` where ``t`` is the feature date. A row's target lands at
+    ``t + horizon``; with the real 5-to-9-day pass cadence and a fixed 7-day
+    embargo, a row at ``t = first_holdout - 7`` with an 8-day horizon has its
+    target inside the validation window — EV-005's seam, through a new door.
+    `check_chronological_split` compared the gap against the constant
+    ``HORIZON_DAYS = 7``, so it reported a pass on that leaking split.
+    """
+
+    def test_kept_training_targets_never_reach_the_holdout(self) -> None:
+        df = _variable_horizon(horizon=8)
+        split = chronological_split(df, horizon_col="horizon_days")
+        first_holdout = pd.to_datetime(split.holdout["date"]).min()
+        targets = pd.to_datetime(split.train["date"]) + pd.to_timedelta(
+            split.train["horizon_days"], unit="D"
+        )
+        assert (targets <= first_holdout).all()
+
+    def test_split_records_the_tables_own_max_horizon(self) -> None:
+        df = _variable_horizon(horizon=8)
+        df.loc[df.index[:5], "horizon_days"] = 5  # a mix, max is still 8
+        split = chronological_split(df, horizon_col="horizon_days")
+        assert split.max_horizon_days == 8
+        assert split.summary()["max_horizon_days"] == 8
+
+    def test_a_split_can_carry_its_max_horizon_for_the_gate_to_read(self) -> None:
+        """`check_chronological_split` needs the table's own horizon, not a constant.
+
+        The gate-level assertion lives in `test_model_integrity.py`; here we only
+        pin that the fact travels on the `Split`.
+        """
+        ordered = _variable_horizon(horizon=8).sort_values("date").reset_index(drop=True)
+        naive = split_from_frames(
+            ordered.iloc[: len(ordered) - 16], ordered.iloc[len(ordered) - 16 :], embargo_days=7
+        )
+        assert naive.max_horizon_days is None
+        carried = Split(**{**naive.__dict__, "max_horizon_days": 8})
+        assert carried.summary()["max_horizon_days"] == 8
+
+    def test_fixed_horizon_table_without_the_column_is_unchanged(self) -> None:
+        """The legacy station table has no horizon column: behaviour must not move."""
+        split = chronological_split(_synthetic())
+        assert split.max_horizon_days is None
+        assert split.gap_days >= HORIZON_DAYS
+
+
 class TestPersistence:
     def test_perfect_persistence_scores_zero(self) -> None:
         frame = pd.DataFrame({"fai_now": [0.1, 0.2], "fai_future": [0.1, 0.2]})
@@ -119,6 +190,57 @@ class TestTrivialRule:
     def test_empty_partition_is_reported_as_unavailable(self) -> None:
         frame = pd.DataFrame({"station_id": [], "bloom_7d": []})
         assert trivial_rule(frame, frame)["available"] is False
+
+
+class TestTrivialRuleSingleGroup:
+    """BL-030: on one spatial unit the location rule is degenerate.
+
+    `rates.idxmax()` picks the only group and `holdout[group] == chosen` is then
+    `True` for every row — "always predict positive", which is neither the
+    location rule it documents nor the climatology rule ADR-sf-0008 D2 requires.
+    Where the table carries fewer than two groups the baseline becomes "predict
+    the training-window mean", using no satellite measurement, which is what
+    rule MI-1 actually asks of a trivial rule.
+    """
+
+    def test_single_group_predicts_the_prior_never_always_positive(self) -> None:
+        train = pd.DataFrame(
+            {"station_id": ["lake"] * 20, "bloom_7d": [0] * 16 + [1] * 4}  # base rate 0.20
+        )
+        holdout = pd.DataFrame(
+            {"station_id": ["lake"] * 10, "bloom_7d": [0] * 7 + [1] * 3}
+        )
+        rule = trivial_rule(train, holdout)
+        assert rule["available"] is True
+        assert rule["kind"] == "climatology"
+        # majority class of a 0.20 prior is 0 — the rule never fires, so it
+        # cannot be the always-positive rule BL-030 describes.
+        assert rule["recall"] == 0.0
+        assert rule["precision"] == 0.0
+
+    def test_single_group_with_a_high_prior_is_still_climatology(self) -> None:
+        train = pd.DataFrame({"station_id": ["lake"] * 10, "bloom_7d": [1] * 8 + [0] * 2})
+        holdout = pd.DataFrame({"station_id": ["lake"] * 5, "bloom_7d": [1] * 3 + [0] * 2})
+        rule = trivial_rule(train, holdout)
+        assert rule["kind"] == "climatology"
+        assert "mean" in rule["rule"]
+
+    def test_constant_label_single_group_reports_without_an_auc(self) -> None:
+        """WI-005's lake table has `bloom_7d` all-zero until recalibration (EV-020)."""
+        train = pd.DataFrame({"station_id": ["lake"] * 20, "bloom_7d": [0] * 20})
+        holdout = pd.DataFrame({"station_id": ["lake"] * 8, "bloom_7d": [0] * 8})
+        rule = trivial_rule(train, holdout)
+        assert rule["kind"] == "climatology"
+        assert rule["auc_roc"] is None
+
+    def test_multi_group_table_keeps_the_location_rule(self) -> None:
+        """EV-002 must still reproduce — the group form is retained for real groups."""
+        frame = pd.DataFrame(
+            {"station_id": ["a"] * 20 + ["b"] * 20, "bloom_7d": [1] * 20 + [0] * 20}
+        )
+        rule = trivial_rule(frame, frame)
+        assert rule.get("kind") != "climatology"
+        assert rule["chosen_group"] == "a"
 
 
 class TestBeatsBaselines:

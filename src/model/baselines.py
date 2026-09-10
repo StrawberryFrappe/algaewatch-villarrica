@@ -47,6 +47,19 @@ class Split:
     first_holdout_date: str | None
     gap_days: int | None
     n_embargoed: int
+    #: The table's own longest forecast horizon, when it carries a per-row
+    #: horizon column. `None` for a fixed-horizon table with no such column, in
+    #: which case `check_chronological_split` falls back to `HORIZON_DAYS`. This
+    #: is what BL-029 turns on: the audited check compared the gap against the
+    #: constant 7 even where the real pass cadence runs to 8 or 9 days.
+    max_horizon_days: int | None = None
+    #: The latest *target* date among the kept training rows, when a per-row
+    #: embargo was applied. `check_chronological_split` asserts this is strictly
+    #: before the first holdout date — the realised boundary the embargo
+    #: enforced. `gap_days` alone cannot express it: on a dense variable-horizon
+    #: table the last kept row usually carries a short horizon, so `gap_days`
+    #: tracks the minimum kept horizon, not the maximum (review issue, 2026-09-10).
+    max_kept_target_date: str | None = None
 
     def summary(self) -> dict:
         """Boundary facts only — the frames themselves are not serialisable."""
@@ -58,6 +71,8 @@ class Split:
             "n_train": len(self.train),
             "n_holdout": len(self.holdout),
             "n_embargoed": self.n_embargoed,
+            "max_horizon_days": self.max_horizon_days,
+            "max_kept_target_date": self.max_kept_target_date,
         }
 
 
@@ -100,6 +115,7 @@ def chronological_split(
     holdout_frac: float = 0.2,
     embargo_days: int = HORIZON_DAYS,
     date_col: str = "date",
+    horizon_col: str | None = None,
 ) -> Split:
     """Splits by time, then removes the embargo band from the training side.
 
@@ -111,6 +127,15 @@ def chronological_split(
 
     Rows are removed from the *training* side only. Shrinking the holdout
     instead would move the boundary and quietly change what is being measured.
+
+    **BL-029.** With a fixed 7-day horizon, embargoing the feature date by 7 days
+    and embargoing the target date are the same cut. WI-005's lake-anomaly table
+    (ADR-sf-0008) has neither: its honest pairs span 5 to 9 days (EV-019), so a
+    row 7 days before the holdout with an 8-day horizon still lands its target
+    inside the validation window. When `horizon_col` names a per-row horizon,
+    the embargo is applied to each row's **target** date — `date + horizon` — and
+    the split records the table's longest horizon so the gate check can require
+    a gap of at least that, rather than the constant `HORIZON_DAYS`.
     """
     # `kind="stable"` is load-bearing, not tidiness. `train.py` sorts by date and
     # then slices positionally; rebuilding the same partition here means sorting
@@ -125,12 +150,32 @@ def chronological_split(
     train_all = ordered.iloc[:cut]
     holdout = ordered.iloc[cut:]
 
+    max_horizon_days = (
+        int(ordered[horizon_col].max())
+        if horizon_col is not None and horizon_col in ordered.columns
+        else None
+    )
+
     if holdout.empty or train_all.empty:
-        return Split(train_all, holdout, embargo_days, None, None, None, 0)
+        return Split(train_all, holdout, embargo_days, None, None, None, 0, max_horizon_days)
 
     first_holdout = pd.to_datetime(holdout[date_col]).min()
     train_dates = pd.to_datetime(train_all[date_col])
-    keep = train_dates <= first_holdout - pd.Timedelta(days=embargo_days)
+
+    max_kept_target_date = None
+    if max_horizon_days is not None:
+        # Embargo each row's *target* date, not its feature date. Strict `<`:
+        # a training target that lands *on* the first holdout date is the same
+        # observation the first holdout row carries as a feature — a seam leak.
+        # The single-split and CV paths agree on this (see `lake_anomaly`).
+        target_dates = train_dates + pd.to_timedelta(train_all[horizon_col], unit="D")
+        keep = target_dates < first_holdout
+        applied_embargo = max_horizon_days
+        if keep.any():
+            max_kept_target_date = target_dates[keep].max().date().isoformat()
+    else:
+        keep = train_dates <= first_holdout - pd.Timedelta(days=embargo_days)
+        applied_embargo = embargo_days
     train = train_all[keep]
 
     last_train = pd.to_datetime(train[date_col]).max() if len(train) else None
@@ -139,11 +184,13 @@ def chronological_split(
     return Split(
         train=train,
         holdout=holdout,
-        embargo_days=embargo_days,
+        embargo_days=applied_embargo,
         last_train_date=None if last_train is None else last_train.date().isoformat(),
         first_holdout_date=first_holdout.date().isoformat(),
         gap_days=gap,
         n_embargoed=int((~keep).sum()),
+        max_horizon_days=max_horizon_days,
+        max_kept_target_date=max_kept_target_date,
     )
 
 
@@ -181,6 +228,12 @@ def trivial_rule(
     The ranking score for AUC is each group's training positive rate, so the
     rule is scored as a probabilistic predictor rather than only at its own
     operating point.
+
+    BL-030: on a table with fewer than two groups the location rule degenerates
+    to "always predict positive". There it is replaced by climatology — predict
+    the training-window mean label, using no measurement — which is what rule
+    MI-1 asks of a trivial rule (ADR-sf-0008 D2). The location form is kept
+    wherever there are real groups, because it is what reproduces EV-002.
     """
     if train.empty or holdout.empty:
         return {"available": False, "reason": "empty partition"}
@@ -188,6 +241,24 @@ def trivial_rule(
     rates = train.groupby(group_col)[label_col].mean()
     if rates.empty:
         return {"available": False, "reason": "no groups in training partition"}
+
+    if len(rates) < 2:
+        base_rate = float(train[label_col].mean())
+        majority = int(round(base_rate))
+        y_true = holdout[label_col].to_numpy()
+        y_pred = np.full(len(holdout), majority)
+        y_score = np.full(len(holdout), base_rate, dtype=float)
+        single_class = len(np.unique(y_true)) < 2
+        return {
+            "available": True,
+            "kind": "climatology",
+            "rule": "predict training-window mean ({:.4f} -> class {})".format(base_rate, majority),
+            "train_positive_rate": round(base_rate, 4),
+            "precision": round(float(precision_score(y_true, y_pred, zero_division=0)), 4),
+            "recall": round(float(recall_score(y_true, y_pred, zero_division=0)), 4),
+            "f1_score": round(float(f1_score(y_true, y_pred, zero_division=0)), 4),
+            "auc_roc": None if single_class else round(float(roc_auc_score(y_true, y_score)), 4),
+        }
 
     chosen = str(rates.idxmax())
     y_true = holdout[label_col].to_numpy()
