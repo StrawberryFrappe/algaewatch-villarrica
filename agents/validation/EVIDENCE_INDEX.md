@@ -97,7 +97,26 @@ EV-006 — credential hygiene:
 git ls-files | grep -iE '\.env$|secret|credential|\.pem$|\.key$' ; git log --all -p | grep -inE '(CDSE_CLIENT_SECRET|GEMINI_API_KEY|CDS_TOKEN|AIza)[=:][^ ]'
 ```
 
-Both commands returning nothing is the pass condition.
+EV-013 — the leakage signature: cross-validation AUC against temporal holdout
+AUC. This is finding 3's headline figure and was quoted in
+`PROJECT_BRIEF.md` and `HANDOFF.md` without a command until the 2026-09-09
+upgrade review caught it — precisely the omission the rule below exists to
+prevent.
+
+```bash
+python -c "
+import sys; sys.path.insert(0, '.')
+from src.model import train
+out = train.train()
+print(out)
+"
+```
+
+Expect mean CV AUC ≈ 0.99 against temporal holdout AUC ≈ 0.90. Reproduced
+2026-09-09 as 0.9925 and 0.9003. The gap is the leakage, not the model: the CV
+figure is inflated by shuffled folds over forward-filled duplicate rows (EV-004,
+EV-005). Both numbers come from the audited pipeline and neither is a
+performance claim.
 
 ## Rules
 

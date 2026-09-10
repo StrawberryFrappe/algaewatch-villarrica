@@ -75,7 +75,7 @@ committed CSVs:
    `fai_now` identical to `fai_lag_1d`.
 3. **Cross-validation leaked.** `StratifiedKFold(shuffle=True)` over those
    duplicated rows put copies of the same observation in both train and
-   validation folds. CV AUC 0.99 versus temporal holdout AUC 0.90 is the
+   validation folds. CV AUC 0.99 versus temporal holdout AUC 0.90 (EV-013) is the
    signature.
 4. **The temporal holdout also leaks at the seam.** Train and holdout share the
    boundary date 2026-06-09 with no embargo, so the last training rows'

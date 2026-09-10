@@ -6,12 +6,35 @@ This project uses a mounted Agent Harness Kernel under `agents/`.
 
 1. `agents/README.md`
 2. `agents/RUN_STATE.md`
-3. `agents/intake/PROJECT_BRIEF.md`
-4. `agents/intake/PROJECT_PROFILE.md`
-5. `agents/intake/SOURCE_MANIFEST.md`
-6. `agents/validation/GATES.md`
-7. `agents/execution/WORKFLOW.md`
-8. Latest relevant review under `agents/reviews/`
+3. `agents/LOCAL_SETUP.md`
+4. `agents/intake/PROJECT_BRIEF.md`
+5. `agents/intake/PROJECT_PROFILE.md`
+6. `agents/intake/SOURCE_MANIFEST.md`
+7. `agents/validation/GATES.md`
+8. `agents/execution/WORKFLOW.md`
+9. `agents/i18n/TRANSLATION_PROTOCOL.md` — this project carries two working
+   languages
+10. Latest relevant review under `agents/reviews/`
+
+Before touching anything under `src/model/`, also read
+`agents/adrs/0004-per-pixel-anomaly-redesign.md`,
+`agents/validation/EVIDENCE_INDEX.md` and `agents/validation/TEST_STRATEGY.md`.
+
+## The Local Half
+
+`agents/` is project truth and is committed. What your agent can do, where your
+checkout lives, and which binaries you invoke are **environment truth**, and
+live in `agents/local/`, which is never committed.
+
+A fresh clone therefore arrives incomplete on purpose. Build the local half
+before implementation work — `agents/LOCAL_SETUP.md` says how, and GATE-LOCAL
+enforces it.
+
+## Languages
+
+English is canonical. Spanish translations live beside their sources as
+`FOO.es.md` and track them by hash. See `agents/i18n/TRANSLATION_PROTOCOL.md`
+and ADR-sf-0006. Where a translation and its source disagree, the source wins.
 
 ## Core Rules
 
@@ -20,14 +43,21 @@ This project uses a mounted Agent Harness Kernel under `agents/`.
   unconditional — it is not waived by small scope, high confidence, or complete
   context. Assumptions filled from context, even "safe" ones, must be surfaced
   for the user to double-check before proceeding.
+- Do not implement application code until `agents/local/CAPABILITIES.md` exists.
 - Preserve existing project rules and fuse them into this file and `agents/`.
 - Ask the user when product, stack, deployment, evidence, or quality decisions
   are unclear.
-- Use subagents for review when available. If unavailable, document the
-  capability downgrade.
-- Keep raw memory and task logs under `agents/local/`; do not commit them.
+- Decide review strength from your own capability scan. Do not assume a
+  capability because a committed document mentions it.
+- Keep environment truth, raw memory and task logs under `agents/local/`; never
+  commit them.
 - Promote durable decisions into ADRs, planning docs, architecture docs,
   validation docs, or review summaries.
+- This project has two contributors. ADR and review filenames carry an author
+  slug — `sf` and `lq`, see ADR-sf-0005 and the naming rules in
+  `agents/execution/WORKFLOW.md`.
+- Cite artifacts rather than asserting them. A citation is checkable, and the
+  doctor checks that cited paths exist.
 - If you detect drift from the harness, stop forward work and produce a handoff.
 
 ## Preserved Project Rules
