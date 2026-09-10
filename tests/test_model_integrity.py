@@ -25,16 +25,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
 from src.model.baselines import Split, chronological_split
-
-#: True when the suite is pointed at a candidate table via `ALGAEWATCH_DATASET`.
-#: The GATE-MODEL xfail marks record how far the *legacy* four-station table is
-#: from each requirement; a dataset-dependent one is lifted for a candidate run
-#: so `ALGAEWATCH_DATASET=... pytest tests/test_model_integrity.py` gives a real
-#: pass/fail verdict on the retrain instead of XPASS noise (ADR-lq-0009).
-ON_CANDIDATE = bool(os.environ.get("ALGAEWATCH_DATASET"))
 from src.model.integrity import (
     CheckResult,
     check_beats_persistence,
@@ -46,6 +37,15 @@ from src.model.integrity import (
     check_station_points_on_water,
     run_all,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+#: True when the suite is pointed at a candidate table via `ALGAEWATCH_DATASET`.
+#: The GATE-MODEL xfail marks record how far the *legacy* four-station table is
+#: from each requirement; a dataset-dependent one is lifted (or skipped) for a
+#: candidate run so `ALGAEWATCH_DATASET=... pytest tests/test_model_integrity.py`
+#: gives a real pass/fail verdict on the retrain instead of XPASS noise (ADR-lq-0009).
+ON_CANDIDATE = bool(os.environ.get("ALGAEWATCH_DATASET"))
 
 
 def _lake_wide(n_days: int = 80, horizon: int = 8) -> pd.DataFrame:
@@ -89,6 +89,31 @@ class TestChronologicalCheckHorizon:
         naive = chronological_split(_lake_wide(horizon=8), embargo_days=7)
         assert naive.max_horizon_days is None
         assert check_chronological_split(naive).passed  # gap 7 >= HORIZON_DAYS 7
+
+    def test_check_passes_a_correctly_embargoed_dense_variable_horizon_split(self) -> None:
+        """A dense daily table with mixed 5-8 day horizons — the per-pixel shape
+        ADR 0004 D3 must flow through unchanged. The embargo is correct per row,
+        so the check must pass; asserting `gap_days >= max_horizon` would false-fail
+        it because the last kept row usually carries a *short* horizon."""
+        dates = pd.date_range("2026-01-01", periods=100, freq="D")
+        df = pd.DataFrame(
+            {
+                "date": [d.date().isoformat() for d in dates],
+                "station_id": "px1",
+                "fai_now": 0.0,
+                "fai_lag_1d": 0.0,
+                "fai_future": 0.0,
+                "bloom_7d": 0,
+                "horizon_days": [5, 6, 7, 8] * 25,
+            }
+        )
+        split = chronological_split(df, horizon_col="horizon_days")
+        first_holdout = pd.to_datetime(split.holdout["date"]).min()
+        kept_targets = pd.to_datetime(split.train["date"]) + pd.to_timedelta(
+            split.train["horizon_days"], unit="D"
+        )
+        assert (kept_targets < first_holdout).all()          # embargo genuinely correct
+        assert check_chronological_split(split).passed        # ...so the check must agree
 
 
 @pytest.mark.xfail(
@@ -134,6 +159,12 @@ def test_pr3_no_fabricated_rows(dataset) -> None:
     assert result.passed, result.detail
 
 
+@pytest.mark.skipif(
+    ON_CANDIDATE,
+    reason="`pipeline_split` mirrors train.py's four-station no-embargo slice; "
+    "WI-005's real split path is expanding_window_folds, covered by "
+    "tests/test_lake_anomaly_model.py::TestExpandingWindowFolds.",
+)
 @pytest.mark.xfail(
     strict=True,
     reason="MI-2: the training path splits with no embargo, sharing a boundary date "

@@ -53,6 +53,13 @@ class Split:
     #: is what BL-029 turns on: the audited check compared the gap against the
     #: constant 7 even where the real pass cadence runs to 8 or 9 days.
     max_horizon_days: int | None = None
+    #: The latest *target* date among the kept training rows, when a per-row
+    #: embargo was applied. `check_chronological_split` asserts this is strictly
+    #: before the first holdout date — the realised boundary the embargo
+    #: enforced. `gap_days` alone cannot express it: on a dense variable-horizon
+    #: table the last kept row usually carries a short horizon, so `gap_days`
+    #: tracks the minimum kept horizon, not the maximum (review issue, 2026-09-10).
+    max_kept_target_date: str | None = None
 
     def summary(self) -> dict:
         """Boundary facts only — the frames themselves are not serialisable."""
@@ -65,6 +72,7 @@ class Split:
             "n_holdout": len(self.holdout),
             "n_embargoed": self.n_embargoed,
             "max_horizon_days": self.max_horizon_days,
+            "max_kept_target_date": self.max_kept_target_date,
         }
 
 
@@ -154,11 +162,17 @@ def chronological_split(
     first_holdout = pd.to_datetime(holdout[date_col]).min()
     train_dates = pd.to_datetime(train_all[date_col])
 
+    max_kept_target_date = None
     if max_horizon_days is not None:
-        # Embargo each row's *target* date, not its feature date.
+        # Embargo each row's *target* date, not its feature date. Strict `<`:
+        # a training target that lands *on* the first holdout date is the same
+        # observation the first holdout row carries as a feature — a seam leak.
+        # The single-split and CV paths agree on this (see `lake_anomaly`).
         target_dates = train_dates + pd.to_timedelta(train_all[horizon_col], unit="D")
-        keep = target_dates <= first_holdout
+        keep = target_dates < first_holdout
         applied_embargo = max_horizon_days
+        if keep.any():
+            max_kept_target_date = target_dates[keep].max().date().isoformat()
     else:
         keep = train_dates <= first_holdout - pd.Timedelta(days=embargo_days)
         applied_embargo = embargo_days
@@ -176,6 +190,7 @@ def chronological_split(
         gap_days=gap,
         n_embargoed=int((~keep).sum()),
         max_horizon_days=max_horizon_days,
+        max_kept_target_date=max_kept_target_date,
     )
 
 

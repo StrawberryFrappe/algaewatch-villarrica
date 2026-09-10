@@ -160,25 +160,29 @@ def check_no_fabricated_rows(
 
     n_rows = len(df)
     n_unique = len(df.drop_duplicates(list(key_cols)))
-    duplicate_lag = (
-        float((df[now_col] == df[lag_col]).mean())
-        if lag_col in df.columns and now_col in df.columns
-        else float("nan")
-    )
+    has_lag = lag_col in df.columns and now_col in df.columns
+    duplicate_lag = float((df[now_col] == df[lag_col]).mean()) if has_lag else float("nan")
     measured = {
         "n_rows": n_rows,
         "n_unique_observations": n_unique,
         "inflation_factor": round(n_rows / n_unique, 3) if n_unique else None,
-        "duplicate_lag_fraction": round(duplicate_lag, 4) if duplicate_lag == duplicate_lag else None,
+        "duplicate_lag_fraction": round(duplicate_lag, 4) if has_lag else None,
+        "lag_signature_checked": has_lag,
     }
 
     rows_ok = n_rows == n_unique
-    lag_ok = duplicate_lag != duplicate_lag or duplicate_lag <= MAX_DUPLICATE_LAG_FRACTION
+    lag_ok = (not has_lag) or duplicate_lag <= MAX_DUPLICATE_LAG_FRACTION
     passed = rows_ok and lag_ok
+    lag_clause = (
+        "fai_now == {} on {:.1%} of rows (ceiling {:.0%})".format(
+            lag_col, duplicate_lag, MAX_DUPLICATE_LAG_FRACTION
+        )
+        if has_lag
+        else "lag-signature check not applicable (no {} column)".format(lag_col)
+    )
     return CheckResult(
         "no_fabricated_rows", passed, "PR-3",
-        "{} rows from {} real combinations; fai_now == fai_lag_1d on {:.1%} of rows "
-        "(ceiling {:.0%}).".format(n_rows, n_unique, duplicate_lag, MAX_DUPLICATE_LAG_FRACTION),
+        "{} rows from {} real combinations; {}.".format(n_rows, n_unique, lag_clause),
         measured,
     )
 
@@ -203,6 +207,23 @@ def check_chronological_split(split: Split, horizon_days: int = HORIZON_DAYS) ->
             "chronological_split", False, "MI-2",
             "No boundary could be computed — a partition is empty.", measured,
         )
+
+    if split.max_kept_target_date is not None and split.first_holdout_date is not None:
+        # A per-row target-date embargo was applied: assert the boundary it
+        # actually enforced, not a scalar gap. On a dense variable-horizon
+        # table the last kept row carries a short horizon, so `gap_days` tracks
+        # the *minimum* kept horizon and `gap >= max_horizon` would false-fail
+        # a correctly embargoed split.
+        passed = pd.Timestamp(split.max_kept_target_date) < pd.Timestamp(split.first_holdout_date)
+        detail = (
+            "last kept training target {} vs first holdout {} — {} "
+            "(per-row embargo, table max horizon {}).".format(
+                split.max_kept_target_date, split.first_holdout_date,
+                "clear" if passed else "leaks", split.max_horizon_days,
+            )
+        )
+        return CheckResult("chronological_split", passed, "MI-2", detail, measured)
+
     passed = gap >= required
     return CheckResult(
         "chronological_split", passed, "MI-2",

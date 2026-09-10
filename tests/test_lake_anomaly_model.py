@@ -93,3 +93,30 @@ class TestFitAndEvaluate:
         out = fit_and_evaluate(pairs)
         assert out["metrics"]["n_pairs"] == len(pairs) == 34
         assert hasattr(out["model"], "predict")
+
+
+class TestCommittedArtifact:
+    """The pickled `ridge.joblib` must not silently diverge from what
+    `fit_and_evaluate` produces on the committed table (review recommendation)."""
+
+    def test_committed_pickle_predicts_identically_to_a_fresh_fit(self, pairs) -> None:
+        import joblib
+
+        artifact = REPO_ROOT / "src" / "model" / "artifacts" / "lake_anomaly" / "ridge.joblib"
+        committed = joblib.load(artifact)
+        fresh = fit_and_evaluate(pairs)["model"]
+        cols = ["anomaly_now", "horizon_days"]
+        np.testing.assert_allclose(
+            committed.predict(pairs[cols]), fresh.predict(pairs[cols]), rtol=1e-9, atol=1e-12
+        )
+
+    def test_committed_metrics_json_matches_a_fresh_evaluation(self, pairs) -> None:
+        import json
+
+        recorded = json.loads(
+            (REPO_ROOT / "src" / "model" / "artifacts" / "lake_anomaly" / "metrics.json").read_text()
+        )
+        fresh = fit_and_evaluate(pairs, bloom_threshold=STATION_THRESHOLD)["metrics"]
+        assert fresh["metrics"]["mae_fai"] == recorded["metrics"]["mae_fai"]
+        assert fresh["baselines"] == recorded["baselines"]
+        assert fresh["beats_baselines"] == recorded["beats_baselines"]

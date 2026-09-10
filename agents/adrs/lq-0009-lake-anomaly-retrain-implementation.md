@@ -44,11 +44,12 @@ baselines (ADR-sf-0008 D2).
 
 Minimum causal observations before an anchor for its baseline `std` to mean
 something. On the 56-date series the pair count is **flat at 34 for any value
-from 2 to 6** — only the zero-history 2025-09-06 anchor is ever dropped — and
-`baseline_std` barely moves across that range (5.7e-4 to 2.0e-3, and the first
-twelve anchors are all ~6e-4). The choice is insensitive; 5 sits clear of the
-sample-std floor of 2, with every kept pair backed by at least 7 real prior
-passes. Reproduction: run the curve in `EVIDENCE_INDEX.md` EV-021.
+from 0 to 7** — the only dropped anchor is 2025-09-06, which has one prior pass
+and falls below the `max(min_prior, 2)` floor regardless — and `baseline_std`
+barely moves across that range (5.7e-4 to 2.0e-3, and the first twelve anchors
+are all ~6e-4). The choice is insensitive; 5 sits clear of the sample-std floor
+of 2, with every kept pair backed by at least 7 real prior passes. Reproduction:
+run the curve in `EVIDENCE_INDEX.md` EV-021.
 
 ### D4 — Ridge, 2 features, expanding-window CV
 
@@ -77,10 +78,14 @@ committed data, no credentials, and the gate needs it.
 
 `tests/conftest.py` gained `ALGAEWATCH_METRICS` beside the existing
 `ALGAEWATCH_DATASET`, and `embargoed_split` now passes `horizon_col` when the
-table carries one. The three GATE-MODEL xfail marks that depend on the dataset
-(`test_pr3_no_fabricated_rows`, `test_label_is_not_a_proxy_for_location`, and —
-kept unconditional by owner decision — `test_forecast_is_not_a_re_reading_of_the_present`)
-are conditioned on `not ON_CANDIDATE`, so
+table carries one. Two dataset-dependent GATE-MODEL xfail marks
+(`test_pr3_no_fabricated_rows`, `test_label_is_not_a_proxy_for_location`) are
+conditioned on `not ON_CANDIDATE`; `test_mi2_training_split_is_chronological_with_embargo`
+is `skipif(ON_CANDIDATE)` because its `pipeline_split` fixture mirrors
+`train.py`'s four-station no-embargo slice, a path WI-005 never uses (its real
+CV embargo is covered by `TestExpandingWindowFolds` in `tests/test_lake_anomaly_model.py`);
+`test_forecast_is_not_a_re_reading_of_the_present` is kept unconditional by owner
+decision. So
 
 ```
 ALGAEWATCH_DATASET=data/processed/lake_anomaly_dataset.csv \
@@ -89,12 +94,47 @@ python -m pytest tests/test_model_integrity.py
 ```
 
 gives a real pass/fail verdict on the retrain instead of XPASS noise. Result:
-**10 passed, 5 xfailed.** The retrain passes `no_fabricated_rows` (PR-3) and
-`label_not_a_proxy` (inapplicable, one spatial unit — omitted per BL-031); it
-still xfails MI-1 against persistence (0.0039 vs 0.0014), the trivial-rule check
-(f1 null), the constant-label present-reading check (vacuous under the
-uncalibrated threshold — ADR-sf-0008 D4, owner decision), and station
-provenance (BL-027).
+**11 passed, 1 skipped, 4 xfailed.** The retrain passes `no_fabricated_rows`
+(PR-3) and `label_not_a_proxy` (inapplicable, one spatial unit — omitted per
+BL-031); it still xfails MI-1 against persistence (0.0039 vs 0.0014), the
+trivial-rule check (f1 null), the constant-label present-reading check, and
+station provenance (BL-027).
+
+**Why the present-reading check fails rather than declaring itself inapplicable,
+unlike the stratification check (D3).** Both are vacuous on the lake table —
+one spatial unit, one constant label. D3 makes `check_label_not_stratified_by_station`
+declare `applicable=False` because a one-unit table is a legitimate shape the
+per-pixel future will *not* have, and omitting it is the honest reading. The
+constant `bloom_7d` is different: it is a symptom of an *uncalibrated threshold*
+(EV-020), a defect to be fixed, not a shape to be accommodated. Failing closed
+on it keeps the pressure to recalibrate visible in the gate rather than silently
+omitted. Owner decision, 2026-09-10.
+
+### D7 — Independent review, and the realised-boundary fix
+
+The BL-029..032 + WI-005 diff was reviewed by a subagent (`general-purpose`),
+verdict **APPROVE WITH FIXES**, no Critical findings, both false passes
+confirmed closed and unreachable, the legacy four-station path confirmed
+untouched. Review recorded at
+`agents/reviews/20260910/implementation-review.lq.md`.
+
+One Important finding, fixed in the same branch: `check_chronological_split`
+false-*failed* a correctly per-row-embargoed **dense variable-horizon** split —
+`gap_days` is measured on feature dates and tracks the *minimum* kept horizon,
+so `gap >= max_horizon_days` rejected a clean split (the per-pixel table shape
+ADR 0004 D3 requires this code to accept unchanged). `Split` now records
+`max_kept_target_date` — the realised boundary the embargo enforced — and the
+check asserts that is strictly before the first holdout date when a per-row
+embargo was applied, falling back to the scalar gap otherwise.
+`chronological_split`'s horizon branch also moved to strict `<` so a training
+target landing exactly on the first holdout date is dropped, matching the CV
+path in `lake_anomaly.py`. Regression test:
+`test_check_passes_a_correctly_embargoed_dense_variable_horizon_split`.
+
+Minor review findings also applied: `check_no_fabricated_rows` now reports
+`lag_signature_checked` and says so in its detail when the lag column is
+absent; two artifact-consistency tests (`TestCommittedArtifact`) assert the
+committed `ridge.joblib` and `metrics.json` match a fresh `fit_and_evaluate`.
 
 ## Consequences
 

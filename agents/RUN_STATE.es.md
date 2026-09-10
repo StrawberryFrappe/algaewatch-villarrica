@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 48f4e706be36c2e0f95a5a3f68a5873f5592f9a2
+source_sha: eea924f5893aab39021c94983a56f12fc8f0b160
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -19,21 +19,27 @@ construido** (ADR-lq-0009): `src/features/lake_anomaly.py`,
 `src/model/lake_anomaly.py`, una tabla candidata versionada y artefactos
 honestos. El reentrenamiento interino de media de lago **pierde contra ambas
 líneas base** — el resultado reportado bajo la regla MI-1. Todo esto está en la
-rama `fix/sf-model-gate-correctness`, sin commitear a `main`, a la espera de una
-revisión de implementación independiente.
+rama `fix/sf-model-gate-correctness` (`e29609a`), **revisado de forma
+independiente** — APROBAR CON CORRECCIONES, sin Críticos, ambos falsos positivos
+confirmados como cerrados, la ruta legada confirmada intacta; el único hallazgo
+Importante (un falso *negativo* en particiones densas de horizonte variable) y
+seis hallazgos Menores están corregidos en la misma rama. Listo para integrar a
+`main`.
 
 ## Estado
 
 - **BL-029 a BL-032 corregidos y WI-005 construido, 2026-09-10** (ADR-lq-0009),
   por `lq` haciendo las veces de `sf` en la mitad del modelo. Rama
-  `fix/sf-model-gate-correctness`, todavía no en `main`, revisión pendiente. Los
-  cuatro defectos de la verificación — dos de ellos falsos positivos de paso —
-  están corregidos con evidencia de antes/después. El reentrenamiento interino
-  de media de lago (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`)
-  es honesto y **pierde contra persistencia y climatología** (EV-021); cumple
-  PR-3 y descarta la etiqueta que hacía de proxy de ubicación. No es
-  desplegable y no llena las cuatro tarjetas de estación. La costura `unit_col`
-  está lista para ADR 0004 D3 (`pixel_id`).
+  `fix/sf-model-gate-correctness`, **revisada de forma independiente** (APROBAR
+  CON CORRECCIONES, sin Críticos — `implementation-review.lq.md`), todos los
+  hallazgos aplicados, todavía no en `main`. Los cuatro defectos de la
+  verificación — dos de ellos falsos positivos de paso — están corregidos con
+  evidencia de antes/después. El reentrenamiento interino de media de lago
+  (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`) es honesto y
+  **pierde contra persistencia y climatología** (EV-021); cumple PR-3 y descarta
+  la etiqueta que hacía de proxy de ubicación. No es desplegable y no llena las
+  cuatro tarjetas de estación. La costura `unit_col` está lista para ADR 0004 D3
+  (`pixel_id`).
 - **El usuario aceptó el harness el 2026-09-10**, liberando GATE-HM. Kernel
   `5dee2cf`, dos contribuyentes, inglés canónico con hermanos en español.
 - **GATE-LOCAL no estaba realmente liberado al comenzar esta sesión.** El
@@ -122,11 +128,11 @@ revisión de implementación independiente.
 
 ## Próxima Acción
 
-**Revisión de implementación independiente** de la rama
-`fix/sf-model-gate-correctness` — las correcciones de verificación BL-029 a
-BL-032 más WI-005. El precedente de WI-004 es una revisión con subagente, no
-autorrevisión (`agents/reviews/reviews_index.md`). Después integrar a `main` y
-registrar la revisión bajo `agents/reviews/20260910/`.
+**Integrar `fix/sf-model-gate-correctness` (`e29609a` + el commit de
+correcciones de revisión) a `main`.** La revisión de implementación
+independiente está hecha — APROBAR CON CORRECCIONES, registrada en
+`agents/reviews/20260910/implementation-review.lq.md` y en `reviews_index.md`;
+todos los hallazgos aplicados en la rama.
 
 Tras eso, **WI-011 es el ítem de mayor apalancamiento y le corresponde al
 usuario.** Cuatro instalaciones de pip — `sentinelhub`, `cdsapi`, `rasterio`,
@@ -167,9 +173,10 @@ vuelo.
 | Corrección del hasheo de GATE-I18N | hecho — EV-018, commit `c875514` |
 | Señal y alcance de WI-005 | hecho — ADR-sf-0008, aprobado por el usuario |
 | Revisión de diseño de WI-005 | hecho — cuatro defectos en código versionado, BL-029 a BL-032 |
-| Correcciones de verificación BL-029 a BL-032 | hecho — ADR-lq-0009; ambos falsos positivos demostrados corregidos; suite por defecto 66 pasaron / 7 xfailed |
-| Reentrenamiento WI-005 | hecho — ADR-lq-0009; pierde contra ambas líneas base (EV-021); gate candidato 10 pasaron / 5 xfailed |
-| Revisión independiente del diff de BL-029..032 + WI-005 | **pendiente** |
+| Correcciones de verificación BL-029 a BL-032 | hecho — ADR-lq-0009; ambos falsos positivos demostrados corregidos; suite por defecto 70 pasaron / 7 xfailed |
+| Reentrenamiento WI-005 | hecho — ADR-lq-0009; pierde contra ambas líneas base (EV-021); gate candidato 11 pasaron / 1 omitido / 4 xfailed |
+| Revisión independiente del diff de BL-029..032 + WI-005 | hecho — APROBAR CON CORRECCIONES, `implementation-review.lq.md`; 1 Importante + 6 Menores aplicados |
+| Integrar `fix/sf-model-gate-correctness` a `main` | **pendiente** |
 
 ## Bloqueadores
 
@@ -202,18 +209,20 @@ vuelo.
   del hasheo en `c875514`. Re-verificado reescribiendo una fuente con CRLF y
   confirmando que la verificación sigue en verde, así que esta cifra ahora sí es
   transferible entre checkouts.
-- `python -m pytest -q` — **66 pasaron, 7 xfailed** en el `.venv` de `lq`
-  (py3.13, scikit-learn 1.7.2). Eran 36/7 en EV-016; +30 por las correcciones de
-  verificación BL-029..032 y WI-005 (`tests/test_lake_anomaly*.py`, nuevos casos
-  de gate y de líneas base).
+- `python -m pytest -q` — **70 pasaron, 7 xfailed** en el `.venv` de `lq`
+  (py3.13, scikit-learn 1.7.2). Eran 36/7 en EV-016; +34 por las correcciones de
+  verificación BL-029..032, WI-005, y los tests de regresión/artefacto de la
+  revisión.
 - **Corrida candidata de GATE-MODEL** —
   `ALGAEWATCH_DATASET=data/processed/lake_anomaly_dataset.csv`
   `ALGAEWATCH_METRICS=src/model/artifacts/lake_anomaly/metrics.json`
-  `python -m pytest -q tests/test_model_integrity.py` → **10 pasaron, 5 xfailed**.
-  El reentrenamiento de media de lago pasa `no_fabricated_rows` (PR-3) y
-  `label_not_a_proxy` (inaplicable, una unidad); sigue en xfail MI-1 contra
-  persistencia, la verificación de regla trivial (f1 nulo), la verificación de
-  atajo con etiqueta constante, y la procedencia de estaciones.
+  `python -m pytest -q tests/test_model_integrity.py` → **11 pasaron, 1 omitido,
+  4 xfailed**. El reentrenamiento de media de lago pasa `no_fabricated_rows`
+  (PR-3) y `label_not_a_proxy` (inaplicable, una unidad); sigue en xfail MI-1
+  contra persistencia, la verificación de regla trivial (f1 nulo), la
+  verificación de atajo con etiqueta constante, y la procedencia de estaciones.
+  El test de MI-2 se omite — su fixture `pipeline_split` es una ruta de cuatro
+  estaciones que WI-005 no usa.
 - Artefactos del modelo regenerados desde el `training_dataset.csv` versionado.
   Precisión, recall, F1, AUC y la matriz de confusión se reproducen exactamente;
   `mae_fai` se movió de 0,00865 a 0,00867 y la media de CV AUC de 0,9922 a

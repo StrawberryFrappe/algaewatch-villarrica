@@ -9,20 +9,24 @@ design review found, two of which produced a false pass. **WI-005 is built**
 (ADR-lq-0009): `src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`, a
 committed candidate table and honest artifacts. The interim lake-mean retrain
 **loses to both baselines** — the reported result under rule MI-1. All of this
-is on branch `fix/sf-model-gate-correctness`, uncommitted-to-`main`, awaiting an
-independent implementation review.
+is on branch `fix/sf-model-gate-correctness` (`e29609a`), **independently
+reviewed** — APPROVE WITH FIXES, no Critical, both false passes confirmed closed,
+the legacy path confirmed untouched; the one Important finding (a false-*fail*
+on dense variable-horizon splits) and six Minor findings are fixed on the same
+branch. Ready to merge to `main`.
 
 ## Status
 
 - **BL-029 to BL-032 fixed and WI-005 built, 2026-09-10** (ADR-lq-0009), by
   `lq` standing in for `sf` on the model half. Branch
-  `fix/sf-model-gate-correctness`, not yet on `main`, review pending. The four
-  gate defects — two of them false passes — are corrected with before/after
-  evidence. The interim lake-mean retrain (`src/features/lake_anomaly.py`,
-  `src/model/lake_anomaly.py`) is honest and **loses to persistence and
-  climatology** (EV-021); it satisfies PR-3 and drops the location-proxy label.
-  It is not shippable and does not fill the four station cards. `unit_col` seam
-  is in place for ADR 0004 D3 (`pixel_id`).
+  `fix/sf-model-gate-correctness`, **independently reviewed** (APPROVE WITH
+  FIXES, no Critical — `implementation-review.lq.md`), all findings applied,
+  not yet on `main`. The four gate defects — two of them false passes — are
+  corrected with before/after evidence. The interim lake-mean retrain
+  (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`) is honest and
+  **loses to persistence and climatology** (EV-021); it satisfies PR-3 and
+  drops the location-proxy label. It is not shippable and does not fill the four
+  station cards. `unit_col` seam is in place for ADR 0004 D3 (`pixel_id`).
 - **Harness accepted by the user on 2026-09-10**, clearing GATE-HM. Kernel
   `5dee2cf`, two contributors, English canonical with Spanish siblings.
 - **GATE-LOCAL was not actually clear when this session began.** The previous
@@ -98,10 +102,10 @@ independent implementation review.
 
 ## Next Action
 
-**Independent implementation review** of branch `fix/sf-model-gate-correctness`
-— the BL-029 to BL-032 gate fixes plus WI-005. WI-004's precedent is a subagent
-review, not self-review (`agents/reviews/reviews_index.md`). Then merge to
-`main` and record the review under `agents/reviews/20260910/`.
+**Merge `fix/sf-model-gate-correctness` (`e29609a` + the review-fix commit) to
+`main`.** The independent implementation review is done — APPROVE WITH FIXES,
+recorded at `agents/reviews/20260910/implementation-review.lq.md` and in
+`reviews_index.md`; all findings applied on the branch.
 
 After that, **WI-011 is the highest-leverage item and it is the user's.** Four
 pip installs — `sentinelhub`, `cdsapi`, `rasterio`, `xarray` — turn working
@@ -139,9 +143,10 @@ Kept current so another contributor can pick this up mid-flight.
 | GATE-I18N hashing fix | done — EV-018, commit `c875514` |
 | WI-005 signal and scope | done — ADR-sf-0008, user-approved |
 | WI-005 design review | done — four committed-code defects found, BL-029 to BL-032 |
-| BL-029 to BL-032 gate fixes | done — ADR-lq-0009; both false passes shown fixed; default suite 66 passed / 7 xfailed |
-| WI-005 retrain | done — ADR-lq-0009; loses to both baselines (EV-021); candidate gate 10 passed / 5 xfailed |
-| Independent review of the BL-029..032 + WI-005 diff | **pending** |
+| BL-029 to BL-032 gate fixes | done — ADR-lq-0009; both false passes shown fixed; default suite 70 passed / 7 xfailed |
+| WI-005 retrain | done — ADR-lq-0009; loses to both baselines (EV-021); candidate gate 11 passed / 1 skipped / 4 xfailed |
+| Independent review of the BL-029..032 + WI-005 diff | done — APPROVE WITH FIXES, `implementation-review.lq.md`; 1 Important + 6 Minor findings applied |
+| Merge `fix/sf-model-gate-correctness` to `main` | **pending** |
 
 ## Blockers
 
@@ -170,16 +175,18 @@ Kept current so another contributor can pick this up mid-flight.
 - `python agents/check_translations.py` — 5 of 5 current, after the hashing fix
   in `c875514`. Re-verified by rewriting a source as CRLF and confirming the gate
   stays green, so this figure is now transferable between checkouts.
-- `python -m pytest -q` — **66 passed, 7 xfailed** on `lq`'s `.venv` (py3.13,
-  scikit-learn 1.7.2). Was 36/7 at EV-016; +30 from the BL-029..032 gate fixes
-  and WI-005 (`tests/test_lake_anomaly*.py`, new gate and baseline cases).
+- `python -m pytest -q` — **70 passed, 7 xfailed** on `lq`'s `.venv` (py3.13,
+  scikit-learn 1.7.2). Was 36/7 at EV-016; +34 from the BL-029..032 gate fixes,
+  WI-005, and the review-fix regression/artifact tests.
 - **Candidate GATE-MODEL run** —
   `ALGAEWATCH_DATASET=data/processed/lake_anomaly_dataset.csv`
   `ALGAEWATCH_METRICS=src/model/artifacts/lake_anomaly/metrics.json`
-  `python -m pytest -q tests/test_model_integrity.py` → **10 passed, 5 xfailed**.
-  The lake-mean retrain passes `no_fabricated_rows` (PR-3) and `label_not_a_proxy`
-  (inapplicable, one unit); still xfails MI-1 vs persistence, the trivial-rule
-  check (f1 null), the constant-label shortcut check, and station provenance.
+  `python -m pytest -q tests/test_model_integrity.py` → **11 passed, 1 skipped,
+  4 xfailed**. The lake-mean retrain passes `no_fabricated_rows` (PR-3) and
+  `label_not_a_proxy` (inapplicable, one unit); still xfails MI-1 vs persistence,
+  the trivial-rule check (f1 null), the constant-label shortcut check, and
+  station provenance. The MI-2 test is skipped — its `pipeline_split` fixture is
+  a four-station path WI-005 does not use.
 - Model artifacts regenerated from the committed `training_dataset.csv`.
   Precision, recall, F1, AUC and the confusion matrix reproduce exactly;
   `mae_fai` moved 0.00865 → 0.00867 and mean CV AUC 0.9922 → 0.9925. The
