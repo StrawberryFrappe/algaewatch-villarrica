@@ -12,7 +12,7 @@ an agent.
 | WI-002 | done | Obtain Copernicus Data Space Ecosystem credentials | user | EV-015: the CDSE token endpoint returns 200 with an `access_token`. Verified 2026-09-10; the credentials were already in place and the blocker was stale |
 | WI-003 | done | Notify the original author that the modelling layer is being rebuilt, and raise the map-library question (ADR 0003) | `sf` | Absorbed into `agents/execution/HANDOFF.md`, which states both. Superseded as a separate errand by ADR-sf-0005 |
 | WI-004 | done | Make persistence and trivial-rule baselines permanent, re-runnable checks (BL-002) | `sf` | EV-016: `python -m pytest -q` → 36 passed, 7 xfailed. `src/model/baselines.py`, `src/model/integrity.py`, `tests/` |
-| WI-005 | pending | Honest retrain on station data: continuous target, local-baseline anomaly, chronological splits with embargo (BL-003 to BL-006) | `sf` | Metrics reported beside both baselines |
+| WI-005 | blocked | Honest retrain on **lake-mean** FAI, not station data: continuous target, local-baseline anomaly, real observation pairs, chronological splits with a per-row embargo (BL-003 to BL-006). Scope and signal settled in ADR-sf-0008; the original "on station data" phrasing is void under ADR-sf-0007. Designed and design-reviewed 2026-09-10, **not implemented** — blocked on BL-029, BL-030 and BL-031, three defects in already-committed code that the review found. Building over them would have produced a green gate on a still-leaking split | Metrics reported beside both baselines, `mae_fai` with its CV spread, classification figures `null` until the threshold is recalibrated (EV-020) |
 | WI-006 | done | Upgrade the mounted harness to the revised kernel (BL-020) | `sf` | Kernel `5dee2cf` recorded in `RUN_STATE.md`; doctor run in `agents/validation/DOCTOR.md`; review in `agents/reviews/20260909/harness_upgrade_review.sf.md` |
 | WI-007 | pending | Hand the repository back: deliver `agents/execution/HANDOFF.md`, confirm `lq` can build his local half and run both checks | `sf` | `lq` confirms receipt and a passing `harness_doctor.py` run on his machine |
 | WI-008 | pending | Settle ADR 0003 — Leaflet stands, or Mapbox returns | `lq` | ADR 0003 status moves from provisional to accepted or superseded |
@@ -42,6 +42,22 @@ an agent.
   cannot make four placeholder points measure the lake. Read WI-005 as the
   modelling fixes only, with per-pixel sampling (ADR 0004 D3) as the path to a
   model that is about water.
+- **WI-005's signal is settled and its implementation is not.** ADR-sf-0008 names
+  `lake_mean_fai` as the interim source — water-mask mean, no station coordinate
+  in its derivation, so ADR-sf-0007 does not reach it. 35 honest pairs (EV-019).
+  Three defects in committed code block the build, in this order: **BL-029**
+  (`chronological_split` embargoes the feature date, so a variable horizon leaks
+  and the check still reports pass), **BL-030** (`trivial_rule` reduces to
+  "always predict positive" on one group), **BL-031** (the inapplicability guard
+  must sit inside the check, not only in `run_all`). BL-032 follows immediately —
+  two non-xfailed tests hardcode the check count and break outright against a
+  single-group table. None is large; all three are correctness fixes to the gate
+  itself, and the gate is what makes WI-005 checkable.
+- **WI-011 remains the highest-leverage unblock, and it is the user's.** Four pip
+  installs (`sentinelhub`, `cdsapi`, `rasterio`, `xarray`) turn working
+  credentials into a runnable pipeline, which gives BL-007 the per-pixel grid,
+  which turns 35 rows into roughly 65,000 (EV-008) and makes WI-005's successor
+  a real model rather than an honest measurement of a small sample.
 
 ## Status Values
 

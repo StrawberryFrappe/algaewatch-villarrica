@@ -23,6 +23,8 @@ All run from the repository root and require no credentials.
 | EV-016 | 2026-09-10 | `python -m pytest -q` reports 36 passed, 7 xfailed | The baseline and integrity checks are permanent and re-runnable, satisfying BL-002. The seven xfails are the GATE-MODEL checks the legacy dataset does not pass; they are `strict`, so a fix reports XPASS as a failure | `tests/` |
 | EV-017 | 2026-09-10 | `torch 2.14.0+cu126`, `torch.cuda.is_available()` true, GeForce GTX 1650 (sm_75, 4.3 GB), GPU matmul executed | PyTorch is installed with working CUDA, clearing WI-010 / BL-024 on the owner's machine | Local environment; recorded in `agents/local/CAPABILITIES.md` |
 | EV-018 | 2026-09-10 | `agents/RUN_STATE.es.md` recorded `source_sha` `28592ee…`, which is the blob sha of `agents/RUN_STATE.md` with **CRLF** line endings; the LF sha, and the committed blob, is `ef31b0a…`. `git cat-file -t 28592ee…` fails — it names no object in the repository. The Spanish text itself is a complete and current translation of that source: the section structure matches 1:1 and the paragraph added in `c3beadf` is present | GATE-I18N failed on a translation that was not stale. `--no-filters` hashes the bytes on disk, so the recorded hash depends on how the file was written, not on the commit — the previous session's working copy was CRLF, every checkout since is LF under `.gitattributes`. `check_translations.py` now normalizes line endings before hashing, and the protocol says so. The gate was fixed before the hash was re-recorded, per the rule in `GATES.md` | `agents/check_translations.py`, `agents/i18n/TRANSLATION_PROTOCOL.md`, `.gitattributes` |
+| EV-019 | 2026-09-10 | Pairing each of the 56 real pass dates in `fai_series_raw.csv` with a later date 5 to 9 days out, nearest to 7, yields **35 honest pairs** (horizons 5d×10, 6d×1, 7d×11, 8d×13). On those pairs, persistence MAE is **0.001333** and a causal expanding-mean climatology MAE is **0.000945** | The lake-wide signal admits an honest retrain without station coordinates, at 35 rows. And climatology **beats** persistence here — the reverse of the station table, where the trivial rule was the leak. Any lake-wide model must clear 0.000945, not 0.001333, so `check_beats_persistence` alone is too weak a bar (BL-029 sequence, ADR-sf-0008). 18 of the 35 dates serve as both a target and a feature anchor, which is BL-033 | `data/processed/fai_series_raw.csv` |
+| EV-020 | 2026-09-10 | `lake_mean_fai` over all 56 dates spans **−0.008248 to +0.001999**, median 0.000162. The bloom threshold recorded in `src/model/artifacts/metrics.json` is **0.025916** | The threshold sits an order of magnitude above the lake-wide maximum, because it was calibrated on the contaminated station series (ADR-sf-0007). Applied to lake-wide data it labels every row negative, so `bloom_7d` is constant and the whole classification surface — two of the seven gate checks and four of five `ValidationMetrics` fields — becomes vacuous. A lake-wide retrain must recalibrate or report those figures as `null` under PR-3, never compute them from a constant label | `data/processed/fai_series_raw.csv`, `src/model/artifacts/metrics.json` |
 
 ## Reproduction
 
@@ -181,6 +183,33 @@ for name, b in (('LF', d), ('CRLF', d.replace(b'\n', b'\r\n'))):
     print(name, hashlib.sha1(b'blob %d\x00' % len(b) + b).hexdigest())
 "
 git cat-file -t 28592eefe840875435c8b510b447d3c0b299b3c6   # fatal: could not get object info
+```
+
+EV-019 and EV-020 — the lake-wide signal. Runs from a clean clone, no
+credentials, no model:
+
+```bash
+python -c "
+import json, numpy as np, pandas as pd
+s = pd.read_csv('data/processed/fai_series_raw.csv', parse_dates=['date']).sort_values('date').reset_index(drop=True)
+dts = s.date.values
+rows = []
+for i, t in enumerate(dts):
+    lag = (dts - t).astype('timedelta64[D]').astype(int)
+    cand = np.where((lag >= 5) & (lag <= 9))[0]
+    if len(cand):
+        j = cand[np.argmin(np.abs(lag[cand] - 7))]
+        rows.append((i, j, int(lag[j])))
+p = pd.DataFrame(rows, columns=['i', 'j', 'h'])
+now, fut = s.lake_mean_fai[p.i].values, s.lake_mean_fai[p.j].values
+clim = s.lake_mean_fai.expanding().mean().values[p.i]
+print('pairs', len(p), '| horizons', dict(sorted(p.h.value_counts().items())))
+print('persistence MAE %.6f' % np.abs(fut - now).mean())
+print('climatology MAE %.6f' % np.abs(fut - clim).mean())
+print('shared dates (target and anchor)', len(set(p.i) & set(p.j)))
+print('lake_mean_fai %.6f .. %.6f median %.6f' % (s.lake_mean_fai.min(), s.lake_mean_fai.max(), s.lake_mean_fai.median()))
+print('recorded threshold', json.load(open('src/model/artifacts/metrics.json'))['fai_alert_threshold'])
+"
 ```
 
 ### Figure drift recorded 2026-09-10

@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: ef31b0a30f2564973312421ef8b040c2e32478d6
+source_sha: ad8d265c33e3162526f39283c7161afa7f2d1e7b
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -12,8 +12,10 @@ translator: agent
 
 Harness aceptado. Implementación en curso en la mitad de `sf`. **WI-004 está
 terminado** — las líneas base y las verificaciones de integridad del modelo son
-ahora una suite de tests permanente — y el siguiente paso es WI-005, el
-reentrenamiento honesto.
+ahora una suite de tests permanente. **WI-005 está diseñado y bloqueado**: su
+señal y su alcance quedaron resueltos en ADR-sf-0008, y una revisión de diseño
+encontró tres defectos en código ya versionado (BL-029 a BL-031) que hay que
+corregir antes de poder juzgar honestamente cualquier reentrenamiento.
 
 ## Estado
 
@@ -58,21 +60,57 @@ reentrenamiento honesto.
 - Las reglas del proyecto preexistentes se preservaron y se fusionaron en
   `AGENTS.md` como PR-1 a PR-4.
 - Dos lenguas de trabajo, GATE-I18N activo (ADR-sf-0006).
+- **GATE-I18N estaba fallando, y lo que estaba mal era la verificación.** El
+  estado de más abajo afirmaba 5 de 5 al día; la primera corrida de la sesión
+  siguiente reportó uno obsoleto. `RUN_STATE.es.md` había registrado el sha de
+  blob con **CRLF** de una fuente que en realidad había traducido de forma
+  correcta y completa. `check_translations.py` hasheaba los bytes en disco, así
+  que el hash registrado describía la copia de trabajo de la sesión anterior y no
+  el commit. Ahora convierte CRLF a LF antes de hashear. EV-018, commit
+  `c875514`; es la tercera vez que una afirmación se adelanta a la realidad, y la
+  primera cuyo remedio fue corregir la verificación en lugar de la afirmación —
+  ver `DOCTOR.md`.
+- **WI-005 está diseñado, no construido (ADR-sf-0008).** Su formulación
+  original, "reentrenamiento honesto sobre datos de estación", es nula bajo
+  ADR-sf-0007. La señal admisible es `lake_mean_fai` — la media sobre la máscara
+  de agua, sin ninguna coordenada de estación en su derivación — que da 35 pares
+  honestos. Dos mediciones dieron forma al diseño: la climatología causal (MAE
+  0,000945) **le gana** a la persistencia (0,001333), así que ganarle solo a la
+  persistencia no prueba nada; y el umbral de bloom registrado, 0,025916, está un
+  orden de magnitud por encima del máximo del lago, 0,001999, así que aplicado a
+  escala de lago etiqueta todas las filas como negativas y toda la superficie de
+  clasificación queda vacía hasta que se recalibre. EV-019, EV-020.
+- **La revisión de diseño encontró tres defectos en código ya versionado**, y por
+  eso no se implementó nada: `chronological_split` aplica el embargo a la fecha de
+  las features en lugar de la fecha del objetivo, y su verificación igual reporta
+  "pasa" (BL-029); `trivial_rule` se reduce a "predecir siempre positivo" en una
+  tabla de un solo grupo (BL-030); y la guarda de inaplicabilidad debe estar
+  dentro de la verificación y no solo en `run_all`, porque los tests la llaman
+  directamente (BL-031). Dos de los tres producen un **falso positivo de paso**.
 
 ## Próxima Acción
 
-`sf` comienza **WI-005** — el reentrenamiento honesto: objetivo continuo, anomalía
-contra una línea base local, solo pares de observaciones reales, y particiones
-cronológicas con un embargo del largo del horizonte (BL-003 a BL-006). La
-verificación ya está escrita, así que el éxito está definido de antemano: los
-xfail de `tests/test_model_integrity.py` deben pasar a verde y sus marcas deben
-retirarse en el mismo cambio.
+Corregir **BL-029, BL-030, BL-031 y BL-032**, en ese orden, antes de implementar
+WI-005. Las cuatro son correcciones a la verificación y a sus líneas base; dos de
+ellas hoy producen un falso positivo de paso, que es peor que una falla. La
+verificación es lo que hace comprobable un reentrenamiento, así que primero tiene
+que estar bien.
 
-Leer la frase "sobre datos de estación" de WI-005 a la luz de ADR-sf-0007. Las
-correcciones de modelado siguen siendo correctas y valen la pena; por sí solas no
-pueden hacer que cuatro coordenadas provisorias midan el lago. El muestreo por
-píxel (ADR 0004 D3) es el camino hacia un modelo que sí trate sobre agua, y
-requiere WI-011 primero.
+Después implementar WI-005 según ADR-sf-0008: un nuevo módulo
+`lake_anomaly.py` bajo `src/features/`, sin importar `sentinelhub`, parametrizado por una
+columna de unidad espacial para que ADR 0004 D3 sustituya `pixel_id` en lugar de
+forzar una reescritura; una línea base móvil causal calculada sobre observaciones
+estrictamente **anteriores** a `t`; Ridge en lugar de GradientBoosting sobre 35
+filas; `mae_fai` con su dispersión de CV como cifra principal y las cifras de
+clasificación en `null` bajo PR-3. Los artefactos honestos van a un directorio
+nuevo — `src/model/artifacts/` no debe sobrescribirse, porque el backend lo carga
+al importar y sirve por estación, así que un modelo de lago completo no puede
+llenar cuatro tarjetas de estación. Recablear la ruta de servicio no es WI-005.
+
+**WI-011 es el ítem de mayor apalancamiento del tablero y le corresponde al
+usuario.** Cuatro instalaciones — `sentinelhub`, `cdsapi`, `rasterio`, `xarray` —
+convierten credenciales que funcionan en un pipeline ejecutable, lo que le da a
+BL-007 la grilla por píxel, lo que convierte 35 filas en unas 65.000 (EV-008).
 
 `lq` sigue debiendo ADR 0003 antes de que empiece el trabajo de frontend.
 
@@ -97,10 +135,20 @@ vuelo.
 | Evidencia, ADR, backlog, work items y estrategia de test actualizados | hecho |
 | Doctor y verificación de traducciones recorridos y registrados | hecho |
 | Revisión independiente del diff de WI-004 | hecho — APROBAR CON CORRECCIONES, 3 hallazgos, todos resueltos en `c49c9a5` |
-| Reentrenamiento WI-005 | sin empezar |
+| Corrección del hasheo de GATE-I18N | hecho — EV-018, commit `c875514` |
+| Señal y alcance de WI-005 | hecho — ADR-sf-0008, aprobado por el usuario |
+| Revisión de diseño de WI-005 | hecho — tres defectos en código versionado, BL-029 a BL-031 |
+| Reentrenamiento WI-005 | **bloqueado** por BL-029, BL-030, BL-031, BL-032 |
 
 ## Bloqueadores
 
+- **BL-029, BL-030, BL-031, BL-032 — la corrección de la propia verificación.**
+  Dos de las cuatro producen un falso positivo de paso en lugar de una falla:
+  `chronological_split` aplica el embargo a la fecha de las features y no a la del
+  objetivo, y `check_chronological_split` compara solo contra la constante
+  `HORIZON_DAYS = 7`; y `check_label_not_stratified_by_station` reporta una
+  dispersión de 0,000 como aprobada en una tabla de un solo grupo. Estas bloquean
+  WI-005 y, a través de él, BL-003 a BL-006.
 - **WI-011 / BL-028 — el pipeline de features no puede correr en esta máquina.**
   `sentinelhub`, `cdsapi`, `rasterio` y `xarray` están todos ausentes del
   intérprete en el PATH y no hay entorno virtual. Que las credenciales funcionen
@@ -117,7 +165,10 @@ vuelo.
 
 - `python agents/harness_doctor.py --root . --strict` — 0 bloqueadores, 0
   advertencias. Registrado en `agents/validation/DOCTOR.md`.
-- `python agents/check_translations.py` — 5 de 5 al día.
+- `python agents/check_translations.py` — 5 de 5 al día, después de la corrección
+  del hasheo en `c875514`. Re-verificado reescribiendo una fuente con CRLF y
+  confirmando que la verificación sigue en verde, así que esta cifra ahora sí es
+  transferible entre checkouts.
 - `python -m pytest -q` — 36 pasaron, 7 xfailed (EV-016).
 - Artefactos del modelo regenerados desde el `training_dataset.csv` versionado.
   Precisión, recall, F1, AUC y la matriz de confusión se reproducen exactamente;
