@@ -163,6 +163,7 @@ def fit_and_evaluate(
         "version": "wi005-lake-anomaly-v1",
         "signal": "lake_mean_fai",
         "target": "standardised causal anomaly of lake_mean_fai at the horizon",
+        "target_kind": "continuous",
         # Carried, not calibrated: the station-series threshold (EV-020), an
         # order of magnitude above the lake-wide maximum. The gate reads it to
         # show `bloom_7d` is constant here; nothing trains on it.

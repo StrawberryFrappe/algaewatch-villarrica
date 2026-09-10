@@ -1,0 +1,156 @@
+# Para Jun — estado del push per-píxel (2026-09-10)
+
+Escrito tras quedarme sin tokens a mitad del trabajo. Es un checkpoint de
+**dónde quedó todo**, qué falta y en qué orden seguir. El brief completo de este
+trabajo sigue siendo `agents/execution/SESSION_HANDOFF.lq.md` — esto no lo
+reemplaza, lo complementa con el avance real.
+
+- **HEAD al empezar:** `4382067` (`merge: BL-029..032 gate correctness + WI-005 lake-mean retrain`)
+- **Rama:** todo el avance está **sin commitear** en el working tree (ahora
+  volcado a una rama WIP, ver el final).
+- **Objetivo del push:** batir persistencia (~0.00136) **y** climatología
+  (~0.00078) en datos reales del lago, con metodología que sobreviva revisión
+  (ADR 0004 D1–D4).
+
+---
+
+## 1. Lo que SÍ quedó hecho (sin commitear, verificado hoy)
+
+### Dependencias (WI-011)
+- `.venv` ya tiene `torch 2.14.0+cu130`, `cdsapi`, `xarray 2026.7.0`, `netCDF4`.
+- `requirements.txt`: `xgboost` → `torch`, y `+netCDF4`.
+
+### Leap A — muestreo per-píxel: **datos completos**
+- `src/features/fai.py`: `sample_grid(..., include_pixel_id=True)` genera
+  `pixel_id` estable (`r####_c####`) porque la geometría del ráster está fija
+  por `LAKE_BBOX` + resolución; el id no se mueve entre pasadas aunque una nube
+  borre el píxel un día.
+- `scripts/collect_fai_grid_series.py`: recolectó la grilla FAI sobre las **56
+  pasadas reales**. Salida en `data/processed/fai_grid_series.csv`:
+  **98.886 filas** de píxel-agua reales · **1.888 píxeles** · **56 fechas** ·
+  sin forward-fill. Checkpoint por request, reanudable.
+
+### Leap B — clima ERA5: **código listo, backfill NO corrido**
+- `src/features/era5.py` reescrito (diff de ~247 líneas) a ERA5-Land **horario**
+  (`reanalysis-era5-land`), agregado por día UTC sobre el área del lago. Evita la
+  cola de daily-statistics (que omite precipitación acumulada). Funciones
+  públicas nuevas: `fetch_era5_land_dates` / `fetch_era5_land_day`,
+  `load_era5_dates`, `load_daily_means`, `collect_era5_days`.
+- `src/features/config.py`: `CDS_API_URL` ahora es override por entorno; nota
+  PR-2 (el `.env` real vive un directorio arriba del repo).
+- `scripts/collect_era5.py` añadido — lee las fechas de `fai_series_raw.csv`,
+  llama `collect_era5_days`, escribe `data/processed/era5_daily.csv`. Se niega a
+  escribir una tabla parcial.
+
+### Pipeline per-píxel y modelo
+- `src/features/per_pixel_dataset.py`: `build_per_pixel_dataset(grid, weather)`
+  reutiliza `build_anomaly_pairs(unit_col="pixel_id", value_col="fai")` de
+  `lake_anomaly.py` (la costura ya estaba). `add_spatial_blocks` asigna 4
+  regiones 2×2 desde los puntos medios de `LAKE_BBOX`. Aborta si falta clima;
+  ninguna fila interpolada.
+- `src/model/per_pixel.py` (258 líneas): MLP cuantílico en PyTorch, 3 cabezas
+  (0.1 / 0.5 / 0.9), pérdida pinball, `spatiotemporal_folds` (embargo temporal
+  por fecha objetivo **+** hold-out de una región espacial por fold — MI-2 +
+  BL-016). `fit_and_evaluate` conserva el back-transform `predict_fai` y el
+  reporte contra **persistencia y climatología** en las mismas filas.
+- `scripts/build_per_pixel_dataset.py` y `scripts/train_per_pixel.py` añadidos.
+  El de train escribe `src/model/artifacts/per_pixel/{quantile_mlp.pt,metrics.json}`.
+
+### Endurecimiento del gate para objetivo continuo
+- `src/model/integrity.py`: `check_beats_trivial_rule`,
+  `check_label_not_stratified_by_station`, `check_no_present_reading_shortcut`
+  devuelven `applicable=False` cuando no hay `bloom_7d` / umbral (tabla de
+  objetivo continuo). Check nuevo `check_continuous_target(artifact_metadata)`
+  (MI-3): el metadato persistido debe declarar `target_kind == "continuous"`.
+- `src/model/lake_anomaly.py` + `src/model/artifacts/lake_anomaly/metrics.json`:
+  agregan `target_kind: "continuous"`.
+- `tests/conftest.py`: `pipeline_split` tolera una tabla sin `bloom_7d`.
+
+### Tests nuevos (todos verdes)
+- `tests/test_feature_pipeline.py` — estabilidad de `pixel_id`, agregación
+  diaria/horaria de ERA5.
+- `tests/test_per_pixel_model.py` — cuantiles torch + aislamiento
+  espaciotemporal.
+- `tests/test_model_metrics_api.py` — BL-026: los baselines viajan por la API.
+
+### Backend / Frontend
+- `backend/app/schemas.py` + `routers/model_metrics.py`: `ModelMetricsResponse`
+  ahora lleva `baselines` y `beats_baselines`.
+- `frontend/src/components/ModelView.jsx`: tarjeta "COMPARACIÓN CON BASELINES" +
+  los chips del footer citan el valor del baseline.
+
+### Docs
+- `README.md` reescrito alrededor del pipeline per-píxel / objetivo continuo,
+  con los comandos reproducibles y el bloque "Estado comprobado".
+
+### Verificación corrida hoy
+| Comando | Resultado |
+|---|---|
+| `.venv/bin/python -m pytest -q` | **78 passed, 8 xfailed** (los 8 xfail son los preexistentes esperados) |
+| `agents/harness_doctor.py --root . --strict` | hard_blockers 0, warnings 0 |
+| `agents/check_translations.py` | 5 checked, 0 problems |
+
+---
+
+## 2. Lo que NO alcanzó a hacerse (aquí se cortó)
+
+1. **Backfill ERA5 no corrido.** No existe `data/processed/era5_daily.csv`.
+   Requiere **aceptar la licencia de ERA5-Land una vez, a mano**, en la web de
+   CDS (HTTP 403 hasta entonces — ver el docstring de `src/features/era5.py`).
+   `.env.example` ya apunta a la página de licencia de `reanalysis-era5-land`.
+   Luego: `.venv/bin/python scripts/collect_era5.py`.
+2. **Tabla per-píxel no construida.** `scripts/build_per_pixel_dataset.py`
+   necesita `era5_daily.csv` primero → produce
+   `data/processed/per_pixel_anomaly_dataset.csv`.
+3. **Modelo no entrenado.** `scripts/train_per_pixel.py` — el veredicto contra
+   persistencia y climatología en folds temporales + espaciales **sigue sin
+   medirse**.
+4. **Gate del candidato no corrido** contra la tabla nueva:
+   `ALGAEWATCH_DATASET=per_pixel_anomaly_dataset.csv ALGAEWATCH_METRICS=src/model/artifacts/per_pixel/metrics.json .venv/bin/python -m pytest -q tests/test_model_integrity.py`
+5. **Docs de cierre sin tocar:** no hay ADR nuevo (Definición de Hecho §8
+   pide `sf-00NN` / `lq-00NN`), no hay entrada de logbook para el trabajo
+   per-píxel de 2026-09-10, `EVIDENCE_INDEX.md` sin comandos de reproducción,
+   `RUN_STATE.md` + `.es.md` todavía apuntan al estado previo al push.
+6. **Revisión de implementación independiente** (subagente) antes de merge — no
+   hecha (Definición de Hecho §7).
+
+---
+
+## 3. Riesgos / preguntas para la revisión
+
+- `torch` quedó **sin pin** en `requirements.txt`. El precedente de WI-005 pina
+  `scikit-learn==1.7.2` para que calce con los artefactos; un artefacto de torch
+  probablemente quiera lo mismo (`torch==2.14.0`).
+- `data/processed/fai_grid_series.csv` pesa ~5 MB y **se commitearía** (está bajo
+  `data/processed/`, no ignorado). Confirmar si se quiere versionar así o
+  regenerar desde script / LFS.
+- `sample_grid` ahora se usa para el overlay del mapa (stride 15) y para la
+  grilla de entrenamiento (stride 15 + `include_pixel_id`) → 1.888 píxeles.
+- Los bloques espaciales son un 2×2 fijo desde los puntos medios de `LAKE_BBOX`;
+  falta verificar que el split deje fuera una región con píxeles suficientes en
+  **cada** fold temporal (BL-016).
+- El umbral de floración `0.025916` es ~10× el máximo per-píxel real (EV-020):
+  hay que recalibrarlo sobre la distribución real o reportar la superficie de
+  clasificación como `null` + razón (MI-3). Nunca hornearlo en las labels.
+
+---
+
+## 4. Próximos pasos, en orden
+
+1. Aceptar la licencia de ERA5-Land en CDS → `scripts/collect_era5.py`.
+2. `scripts/build_per_pixel_dataset.py` → `scripts/train_per_pixel.py`; leer el
+   veredicto (¿bate climatología?).
+3. Correr el gate del candidato. Recalibrar el umbral o dejar la clasificación
+   en `null` + razón.
+4. Escribir ADR + logbook + `EVIDENCE_INDEX.md` + `RUN_STATE.md` (+ `.es`,
+   re-hashear `source_sha`).
+5. Revisión independiente (subagente), luego merge a `main`.
+
+---
+
+## 5. Dónde está este avance
+
+Volcado a la rama WIP **`wip/per-pixel-retrain`** y pusheado a `origin`. No está
+en `main`: es trabajo en progreso sin revisar (la Definición de Hecho pide
+revisión independiente antes del merge). Los tests, el harness doctor y las
+traducciones están verdes en ese estado.

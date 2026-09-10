@@ -2,6 +2,7 @@
   "version": "wi005-lake-anomaly-v1",
   "signal": "lake_mean_fai",
   "target": "standardised causal anomaly of lake_mean_fai at the horizon",
+  "target_kind": "continuous",
   "fai_alert_threshold": 0.025916439519215278,
   "n_pairs": 34,
   "date_range": {

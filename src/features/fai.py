@@ -53,7 +53,7 @@ class FaiRaster:
         values = self.fai[self.is_water]
         return float(np.nanmean(values)) if values.size else None
 
-    def sample_grid(self, stride_px: int = 15) -> list[dict]:
+    def sample_grid(self, stride_px: int = 15, *, include_pixel_id: bool = False) -> list[dict]:
         """Downsamples the water pixels to a grid for the map's real heatmap
         overlay (every stride_px-th pixel in each axis — stride_px=15 at 20m
         resolution is a ~300m grid, a few hundred to ~2000 points depending on
@@ -70,7 +70,13 @@ class FaiRaster:
                 value = self.fai[row, col]
                 if np.isnan(value):
                     continue
-                points.append({"lat": round(lat, 5), "lng": round(lon, 5), "fai": round(float(value), 5)})
+                point = {"lat": round(lat, 5), "lng": round(lon, 5), "fai": round(float(value), 5)}
+                if include_pixel_id:
+                    # Raster geometry is fixed by LAKE_BBOX + resolution, so
+                    # row/column is stable across passes even when clouds or
+                    # the SCL mask make a pixel absent on one date.
+                    point["pixel_id"] = f"r{row:04d}_c{col:04d}"
+                points.append(point)
         return points
 
     def at_latlon(self, lat: float, lon: float, max_radius_px: int = 60) -> float | None:

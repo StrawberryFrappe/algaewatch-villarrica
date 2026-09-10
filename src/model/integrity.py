@@ -109,6 +109,15 @@ def check_beats_persistence(model_metrics: Mapping, split: Split) -> CheckResult
 
 def check_beats_trivial_rule(model_metrics: Mapping, split: Split) -> CheckResult:
     """MI-1. The classifier is reported beside a rule that reads only location."""
+    if "bloom_7d" not in split.train.columns or "bloom_7d" not in split.holdout.columns:
+        return CheckResult(
+            "beats_trivial_rule",
+            False,
+            "MI-1",
+            "Continuous-target table: classification trivial rule is inapplicable; use the recorded climatology regression baseline.",
+            {"label_column_present": False},
+            applicable=False,
+        )
     baselines = compute_baselines(split)
     trivial = baselines["trivial_rule"]
     baseline_f1 = trivial.get("f1_score")
@@ -250,6 +259,12 @@ def check_label_not_stratified_by_station(
     table return a 0.000-spread vacuous pass — which under `xfail(strict=True)`
     surfaces as a spurious XPASS failure rather than the omission it is.
     """
+    if label_col not in df.columns:
+        return CheckResult(
+            "label_not_stratified_by_station", False, "ADR 0004 D2",
+            f"No {label_col} column: the model has a continuous target, so label stratification is inapplicable.",
+            {"label_column_present": False}, applicable=False,
+        )
     n_groups = df[group_col].nunique() if group_col in df.columns else 0
     if n_groups < 2:
         return CheckResult(
@@ -287,6 +302,13 @@ def check_no_present_reading_shortcut(
     Where it does, the "seven-day forecast" is a re-reading of the present, and
     the classifier's apparent skill is the autocorrelation of a slow index.
     """
+    if threshold is None or label_col not in df.columns:
+        return CheckResult(
+            "no_present_reading_shortcut", False, "MI-3",
+            "No policy threshold/training label pair: continuous-target model makes this classification shortcut inapplicable.",
+            {"threshold": threshold, "label_column_present": label_col in df.columns},
+            applicable=False,
+        )
     agreement = float(((df[now_col] >= threshold).astype(int) == df[label_col]).mean())
     measured = {"threshold": threshold, "agreement": round(agreement, 4)}
     passed = agreement <= MAX_PRESENT_READING_AGREEMENT
@@ -295,6 +317,20 @@ def check_no_present_reading_shortcut(
         "Thresholding {} at {:.4f} reproduces the label on {:.1%} of rows "
         "(ceiling {:.0%}).".format(now_col, threshold, agreement, MAX_PRESENT_READING_AGREEMENT),
         measured,
+    )
+
+
+def check_continuous_target(artifact_metadata: Mapping) -> CheckResult:
+    """MI-3. Persisted model metadata must declare a continuous target."""
+    target_kind = artifact_metadata.get("target_kind")
+    target = artifact_metadata.get("target")
+    passed = target_kind == "continuous" and bool(target)
+    return CheckResult(
+        "continuous_target",
+        passed,
+        "MI-3",
+        "Persisted target kind is {!r}; expected 'continuous'.".format(target_kind),
+        {"target_kind": target_kind, "target": target},
     )
 
 

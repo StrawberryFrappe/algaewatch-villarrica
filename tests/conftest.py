@@ -109,8 +109,9 @@ def pipeline_split(dataset: pd.DataFrame):
     """
     from src.model.baselines import split_from_frames
 
+    required = [column for column in ("bloom_7d", "fai_future") if column in dataset.columns]
     frame = (
-        dataset.dropna(subset=["bloom_7d", "fai_future"])
+        dataset.dropna(subset=required)
         .sort_values("date")
         .reset_index(drop=True)
     )

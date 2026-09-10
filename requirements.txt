@@ -9,6 +9,7 @@ sentinelhub
 cdsapi
 xarray
 rasterio
+netCDF4
 numpy
 pandas
 
@@ -17,7 +18,7 @@ pandas
 # version and fail to unpickle on a mismatched one (sklearn moves internal
 # modules between minors). Bump this and the artifacts together.
 scikit-learn==1.7.2
-xgboost
+torch
 joblib
 
 # tests (GATE-TEST / GATE-MODEL)

@@ -34,6 +34,8 @@ def model_metrics() -> ModelMetricsResponse:
         confusion_matrix=ConfusionMatrix(**m["confusion_matrix"]),
         feature_importance=feature_importance,
         metrics=ValidationMetrics(**m["metrics"]),
+        baselines=m["baselines"],
+        beats_baselines=m["beats_baselines"],
         validation=Validation(
             n_observations=m["n_observations"],
             period=period,

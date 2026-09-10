@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -128,6 +128,8 @@ class ModelMetricsResponse(BaseModel):
     confusion_matrix: ConfusionMatrix
     feature_importance: list[FeatureImportance]
     metrics: ValidationMetrics
+    baselines: dict[str, Any]
+    beats_baselines: dict[str, bool | None]
     validation: Validation
     disclaimer: str
     source: Literal["mock", "model"]

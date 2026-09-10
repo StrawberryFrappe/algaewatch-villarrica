@@ -1,8 +1,8 @@
 """Shared config for the feature pipeline (Sentinel-2 FAI + ERA5-Land).
 
-Credentials come from the repo-root .env (CDS_TOKEN, CDSE_CLIENT_ID,
-CDSE_CLIENT_SECRET) via find_dotenv(), so this works unchanged on a server
-with a different absolute path.
+Credentials come from an ``.env`` discovered by :func:`find_dotenv`. Project
+rule PR-2 requires the real file to live one directory above the repository,
+so credentials are structurally outside the Git tree while remaining portable.
 """
 
 import os
@@ -19,7 +19,7 @@ CDSE_CLIENT_ID = os.environ.get("CDSE_CLIENT_ID")
 CDSE_CLIENT_SECRET = os.environ.get("CDSE_CLIENT_SECRET")
 CDS_TOKEN = os.environ.get("CDS_TOKEN")
 
-CDS_API_URL = "https://cds.climate.copernicus.eu/api"
+CDS_API_URL = os.environ.get("CDS_API_URL", "https://cds.climate.copernicus.eu/api")
 
 
 def sentinelhub_config() -> SHConfig:

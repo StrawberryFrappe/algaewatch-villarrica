@@ -28,6 +28,9 @@ export function ModelView({ metrics }) {
   }
 
   const cm = metrics.confusion_matrix;
+  const persistence = metrics.baselines?.persistence;
+  const trivial = metrics.baselines?.trivial_rule;
+  const verdict = metrics.beats_baselines ?? {};
 
   return (
     <div className="view-panel glass-content">
@@ -79,6 +82,27 @@ export function ModelView({ metrics }) {
             {metrics.disclaimer}
           </div>
         </div>
+
+        <div className="model-card">
+          <div className="model-card-eyebrow">COMPARACIÓN CON BASELINES</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 11, fontSize: 12.5 }}>
+            <div>
+              <div style={{ color: 'var(--color-text-secondary)' }}>MAE del modelo: {numEs(metrics.metrics.mae_fai, 5)}</div>
+              <div style={{ color: 'var(--color-text-dim)' }}>
+                Persistencia: {numEs(persistence?.mae_fai, 5)} · {verdict.persistence ? 'superada' : 'no superada'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--color-text-secondary)' }}>F1 del modelo: {numEs(metrics.metrics.f1_score, 4)}</div>
+              <div style={{ color: 'var(--color-text-dim)' }}>
+                Regla trivial: {numEs(trivial?.f1_score, 4)} · {verdict.trivial_rule ? 'superada' : 'no superada'}
+              </div>
+            </div>
+            <div style={{ color: 'var(--color-text-dim)', lineHeight: 1.45 }}>
+              Una métrica solo es evidencia cuando aparece junto a una referencia calculada sobre las mismas filas.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -94,9 +118,9 @@ export function ModelFooter({ metrics }) {
   const CHIPS = [
     { label: 'PRECISIÓN', value: fmt(m.precision, 2), pct: pct(m.precision), note: `VP ${metrics.confusion_matrix.true_positives}/FP ${metrics.confusion_matrix.false_positives}` },
     { label: 'RECALL', value: fmt(m.recall, 2), pct: pct(m.recall), note: `FN ${metrics.confusion_matrix.false_negatives}` },
-    { label: 'F1-SCORE', value: fmt(m.f1_score, 2), pct: pct(m.f1_score), note: 'floración' },
+    { label: 'F1-SCORE', value: fmt(m.f1_score, 2), pct: pct(m.f1_score), note: `base ${fmt(metrics.baselines?.trivial_rule?.f1_score, 2)}` },
     { label: 'AUC-ROC', value: fmt(m.auc_roc, 2), pct: pct(m.auc_roc), note: 'hold-out' },
-    { label: 'MAE FAI', value: fmt(m.mae_fai, 3), pct: m.mae_fai == null ? 0 : (1 - m.mae_fai) * 100, note: 'error medio' },
+    { label: 'MAE FAI', value: fmt(m.mae_fai, 3), pct: m.mae_fai == null ? 0 : (1 - m.mae_fai) * 100, note: `persist. ${fmt(metrics.baselines?.persistence?.mae_fai, 3)}` },
   ];
 
   return (

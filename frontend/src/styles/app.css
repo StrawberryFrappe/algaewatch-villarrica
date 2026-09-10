@@ -121,7 +121,42 @@
 .live-meta .label { font-size: 8.5px; letter-spacing: 0.5px; color: var(--color-text-label); text-transform: uppercase; }
 .live-meta .value { font-size: 11.5px; font-weight: 500; color: var(--color-text-secondary); }
 .live-meta .source { font-size: 9px; color: var(--color-text-dim); }
-@media (max-width: 720px) { .live-meta .source { display: none; } }
+@media (max-width: 720px) {
+  .header-bar {
+    height: auto;
+    min-height: var(--topbar-h);
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding-block: 10px 8px;
+  }
+  .brand { min-width: 0; }
+  .brand-sub { display: none; }
+  .live-indicator { margin-left: auto; }
+  .live-meta .source { display: none; }
+  .tabs {
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: stretch;
+    overflow: visible;
+  }
+  .tab-btn {
+    flex: 1 1 25%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 4px;
+  }
+  .header-tools {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .time-window { flex-basis: 100%; }
+  .selected-date {
+    flex: 1 1 100%;
+    padding: 8px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--hairline-soft);
+  }
+}
 
 /* Secondary tools bar — time window */
 .time-window { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0; }
