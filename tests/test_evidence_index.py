@@ -90,6 +90,25 @@ def test_ev009_classifier_re_reads_the_present(dataset, bloom_threshold) -> None
     assert dataset.fai_now.corr(dataset.fai_future) == pytest.approx(0.758, abs=0.001)
 
 
+def test_ev021_lake_anomaly_retrain_loses_to_both_baselines(fai_series: pd.DataFrame) -> None:
+    """WI-005 (ADR-lq-0009): the interim lake-mean retrain is honest and does not
+    beat persistence or climatology. Pins the headline numbers so they cannot
+    drift; if the retrain changes, update EV-021 in the same commit."""
+    from src.features.lake_anomaly import build_anomaly_pairs, build_pairs
+    from src.model.lake_anomaly import fit_and_evaluate
+
+    assert len(build_pairs(fai_series)) == 35  # EV-019 pairing, unfiltered
+    pairs = build_anomaly_pairs(fai_series, min_prior=5)
+    assert len(pairs) == 34
+
+    m = fit_and_evaluate(pairs)["metrics"]
+    assert m["metrics"]["mae_fai"] == pytest.approx(0.003919, abs=1e-5)
+    assert m["baselines"]["persistence"]["mae_fai"] == pytest.approx(0.001362, abs=1e-5)
+    assert m["baselines"]["climatology"]["mae_fai"] == pytest.approx(0.000775, abs=1e-5)
+    assert m["beats_baselines"] == {"persistence": False, "climatology": False}
+    assert all(m["metrics"][k] is None for k in ("precision", "recall", "f1_score", "auc_roc"))
+
+
 def test_ev011_real_reading_count(fai_series: pd.DataFrame) -> None:
     """218 real readings, not 56 x 4 — six cells found no water pixel."""
     columns = ["fai_pucon", "fai_norte", "fai_tolten", "fai_sur"]

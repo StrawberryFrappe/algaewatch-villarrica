@@ -56,8 +56,20 @@ def fai_grid() -> pd.DataFrame:
 
 
 @pytest.fixture(scope="session")
-def metrics() -> dict:
-    return json.loads(METRICS.read_text())
+def metrics_path() -> Path:
+    """Overridable alongside the dataset, so the gate can judge a candidate
+    retrain by its own metrics file:
+
+        ALGAEWATCH_DATASET=data/processed/lake_anomaly_dataset.csv \\
+        ALGAEWATCH_METRICS=src/model/artifacts/lake_anomaly/metrics.json pytest
+    """
+    override = os.environ.get("ALGAEWATCH_METRICS")
+    return Path(override) if override else METRICS
+
+
+@pytest.fixture(scope="session")
+def metrics(metrics_path: Path) -> dict:
+    return json.loads(metrics_path.read_text())
 
 
 @pytest.fixture(scope="session")
@@ -109,7 +121,13 @@ def pipeline_split(dataset: pd.DataFrame):
 
 @pytest.fixture(scope="session")
 def embargoed_split(dataset: pd.DataFrame):
-    """The split MI-2 requires: chronological, with a horizon-length embargo."""
+    """The split MI-2 requires: chronological, with a horizon-length embargo.
+
+    When the table carries a per-row `horizon_days` column (WI-005's lake
+    table), the embargo clears each row's *target* date, not its feature date
+    (BL-029). The four-station table has no such column and is unchanged.
+    """
     from src.model.baselines import chronological_split
 
-    return chronological_split(dataset)
+    horizon_col = "horizon_days" if "horizon_days" in dataset.columns else None
+    return chronological_split(dataset, horizon_col=horizon_col)

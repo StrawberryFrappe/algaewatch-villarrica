@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 414532090372649b81d085721182dec689560df7
+source_sha: 48f4e706be36c2e0f95a5a3f68a5873f5592f9a2
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -12,13 +12,28 @@ translator: agent
 
 Harness aceptado. Implementación en curso en la mitad de `sf`. **WI-004 está
 terminado** — las líneas base y las verificaciones de integridad del modelo son
-ahora una suite de tests permanente. **WI-005 está diseñado y bloqueado**: su
-señal y su alcance quedaron resueltos en ADR-sf-0008, y una revisión de diseño
-encontró tres defectos en código ya versionado (BL-029 a BL-031) que hay que
-corregir antes de poder juzgar honestamente cualquier reentrenamiento.
+ahora una suite de tests permanente. **BL-029 a BL-032 están corregidos** — los
+cuatro defectos de corrección de la verificación que encontró la revisión de
+diseño de WI-005, dos de ellos falsos positivos de paso. **WI-005 está
+construido** (ADR-lq-0009): `src/features/lake_anomaly.py`,
+`src/model/lake_anomaly.py`, una tabla candidata versionada y artefactos
+honestos. El reentrenamiento interino de media de lago **pierde contra ambas
+líneas base** — el resultado reportado bajo la regla MI-1. Todo esto está en la
+rama `fix/sf-model-gate-correctness`, sin commitear a `main`, a la espera de una
+revisión de implementación independiente.
 
 ## Estado
 
+- **BL-029 a BL-032 corregidos y WI-005 construido, 2026-09-10** (ADR-lq-0009),
+  por `lq` haciendo las veces de `sf` en la mitad del modelo. Rama
+  `fix/sf-model-gate-correctness`, todavía no en `main`, revisión pendiente. Los
+  cuatro defectos de la verificación — dos de ellos falsos positivos de paso —
+  están corregidos con evidencia de antes/después. El reentrenamiento interino
+  de media de lago (`src/features/lake_anomaly.py`, `src/model/lake_anomaly.py`)
+  es honesto y **pierde contra persistencia y climatología** (EV-021); cumple
+  PR-3 y descarta la etiqueta que hacía de proxy de ubicación. No es
+  desplegable y no llena las cuatro tarjetas de estación. La costura `unit_col`
+  está lista para ADR 0004 D3 (`pixel_id`).
 - **El usuario aceptó el harness el 2026-09-10**, liberando GATE-HM. Kernel
   `5dee2cf`, dos contribuyentes, inglés canónico con hermanos en español.
 - **GATE-LOCAL no estaba realmente liberado al comenzar esta sesión.** El
@@ -107,34 +122,30 @@ corregir antes de poder juzgar honestamente cualquier reentrenamiento.
 
 ## Próxima Acción
 
-Corregir **BL-029, BL-030, BL-031 y BL-032**, en ese orden, antes de implementar
-WI-005. Las cuatro son correcciones a la verificación y a sus líneas base; dos de
-ellas hoy producen un falso positivo de paso, que es peor que una falla. La
-verificación es lo que hace comprobable un reentrenamiento, así que primero tiene
-que estar bien.
+**Revisión de implementación independiente** de la rama
+`fix/sf-model-gate-correctness` — las correcciones de verificación BL-029 a
+BL-032 más WI-005. El precedente de WI-004 es una revisión con subagente, no
+autorrevisión (`agents/reviews/reviews_index.md`). Después integrar a `main` y
+registrar la revisión bajo `agents/reviews/20260910/`.
 
-Después implementar WI-005 según ADR-sf-0008: un nuevo módulo
-`lake_anomaly.py` bajo `src/features/`, sin importar `sentinelhub`, parametrizado por una
-columna de unidad espacial para que ADR 0004 D3 sustituya `pixel_id` en lugar de
-forzar una reescritura; una línea base móvil causal calculada sobre observaciones
-estrictamente **anteriores** a `t`; Ridge en lugar de GradientBoosting sobre 35
-filas; `mae_fai` con su dispersión de CV como cifra principal y las cifras de
-clasificación en `null` bajo PR-3. Los artefactos honestos van a un directorio
-nuevo — `src/model/artifacts/` no debe sobrescribirse, porque el backend lo carga
-al importar y sirve por estación, así que un modelo de lago completo no puede
-llenar cuatro tarjetas de estación. Recablear la ruta de servicio no es WI-005.
+Tras eso, **WI-011 es el ítem de mayor apalancamiento y le corresponde al
+usuario.** Cuatro instalaciones de pip — `sentinelhub`, `cdsapi`, `rasterio`,
+`xarray` — convierten credenciales que funcionan en un pipeline ejecutable, lo
+que le da a BL-007 la grilla por píxel, lo que convierte 34 filas en unas 65.000
+(EV-008) y permite que ADR 0004 D3 reemplace el centinela de lago completo por
+`pixel_id` — la costura `unit_col` ya está en `lake_anomaly.py` para eso.
 
-**WI-011 es el ítem de mayor apalancamiento del tablero y le corresponde al
-usuario.** Cuatro instalaciones — `sentinelhub`, `cdsapi`, `rasterio`, `xarray` —
-convierten credenciales que funcionan en un pipeline ejecutable, lo que le da a
-BL-007 la grilla por píxel, lo que convierte 35 filas en unas 65.000 (EV-008).
+Resumen de WI-005 (ADR-lq-0009, EV-021): el reentrenamiento interino de media de
+lago es honesto y **no** le gana a la persistencia (0,0014) ni a la climatología
+(0,0008) — `mae_fai` 0,0039 ± 0,0021 en CV de ventana expansiva de 4 pliegues.
+Corrige la fabricación (PR-3) y la etiqueta que hacía de proxy de ubicación; no
+es un modelo desplegable, y no llena las cuatro tarjetas de estación del
+tablero. `src/model/artifacts/` (el del backend) está intacto byte a byte; los
+artefactos honestos están en `src/model/artifacts/lake_anomaly/`.
 
-La mitad de `lq` avanzó: ADR 0003 aceptado, WI-008 y WI-009 terminados, más una
-pasada de tema claro (WI-013). Integrado a `develop` al final de esta sesión.
-
-Hay un traspaso de sesión que cubre lo hecho, lo que el backlog espera a
-continuación, y cómo retomar desde `develop`, en
-`agents/execution/SESSION_HANDOFF.sf.md`.
+La mitad de `lq`: ADR 0003 aceptado, WI-008 / WI-009 / WI-013 terminados.
+`develop` fue retirado el 2026-09-10 — el trabajo va directo a `main`
+(`WORKFLOW.md`).
 
 ## Lista de Progreso
 
@@ -155,23 +166,27 @@ vuelo.
 | Revisión independiente del diff de WI-004 | hecho — APROBAR CON CORRECCIONES, 3 hallazgos, todos resueltos en `c49c9a5` |
 | Corrección del hasheo de GATE-I18N | hecho — EV-018, commit `c875514` |
 | Señal y alcance de WI-005 | hecho — ADR-sf-0008, aprobado por el usuario |
-| Revisión de diseño de WI-005 | hecho — tres defectos en código versionado, BL-029 a BL-031 |
-| Reentrenamiento WI-005 | **bloqueado** por BL-029, BL-030, BL-031, BL-032 |
+| Revisión de diseño de WI-005 | hecho — cuatro defectos en código versionado, BL-029 a BL-032 |
+| Correcciones de verificación BL-029 a BL-032 | hecho — ADR-lq-0009; ambos falsos positivos demostrados corregidos; suite por defecto 66 pasaron / 7 xfailed |
+| Reentrenamiento WI-005 | hecho — ADR-lq-0009; pierde contra ambas líneas base (EV-021); gate candidato 10 pasaron / 5 xfailed |
+| Revisión independiente del diff de BL-029..032 + WI-005 | **pendiente** |
 
 ## Bloqueadores
 
-- **BL-029, BL-030, BL-031, BL-032 — la corrección de la propia verificación.**
-  Dos de las cuatro producen un falso positivo de paso en lugar de una falla:
-  `chronological_split` aplica el embargo a la fecha de las features y no a la del
-  objetivo, y `check_chronological_split` compara solo contra la constante
-  `HORIZON_DAYS = 7`; y `check_label_not_stratified_by_station` reporta una
-  dispersión de 0,000 como aprobada en una tabla de un solo grupo. Estas bloquean
-  WI-005 y, a través de él, BL-003 a BL-006.
-- **WI-011 / BL-028 — el pipeline de features no puede correr en esta máquina.**
-  `sentinelhub`, `cdsapi`, `rasterio` y `xarray` están todos ausentes del
-  intérprete en el PATH y no hay entorno virtual. Que las credenciales funcionen
-  no significa que la recolección funcione. Esto bloquea BL-007, BL-012 y BL-014,
-  y por lo tanto BL-008 en la práctica.
+- **BL-029, BL-030, BL-031, BL-032 — liberados el 2026-09-10** (ADR-lq-0009). El
+  embargo a la fecha del objetivo, el despacho a climatología en un solo grupo,
+  la guarda de inaplicabilidad dentro de la verificación y los tests de
+  plomería agnósticos a la forma están todos en su lugar; ambos falsos positivos
+  quedan demostrados corregidos. Ya no bloquean BL-003 a BL-006 ni WI-005 —
+  WI-005 está construido.
+- **WI-011 / BL-028 — el pipeline de features sigue sin poder correr.** En el
+  `.venv` de `lq` (2026-09-10) `sentinelhub` 3.11.5 está presente pero `cdsapi`,
+  `rasterio` y `xarray` no, así que
+  `python -c "import sentinelhub, cdsapi, rasterio, xarray"` todavía falla. Que
+  las credenciales funcionen no significa que la recolección funcione. Bloquea
+  BL-007, BL-012, BL-014, y BL-008 en la práctica. (La nota anterior de "no hay
+  entorno virtual" describía la máquina de `sf`; corregida aquí — existe un
+  `.venv` en el checkout de `lq` y corre los tests y ambos reentrenamientos.)
 - **WI-012 / BL-027 — coordenadas de estación.** Bloqueado a la espera del GPS
   real que llega con los CSV del SNIA. Hasta entonces, ADR-sf-0007 descalifica el
   FAI de punto de estación como señal de entrenamiento, y
@@ -187,7 +202,18 @@ vuelo.
   del hasheo en `c875514`. Re-verificado reescribiendo una fuente con CRLF y
   confirmando que la verificación sigue en verde, así que esta cifra ahora sí es
   transferible entre checkouts.
-- `python -m pytest -q` — 36 pasaron, 7 xfailed (EV-016).
+- `python -m pytest -q` — **66 pasaron, 7 xfailed** en el `.venv` de `lq`
+  (py3.13, scikit-learn 1.7.2). Eran 36/7 en EV-016; +30 por las correcciones de
+  verificación BL-029..032 y WI-005 (`tests/test_lake_anomaly*.py`, nuevos casos
+  de gate y de líneas base).
+- **Corrida candidata de GATE-MODEL** —
+  `ALGAEWATCH_DATASET=data/processed/lake_anomaly_dataset.csv`
+  `ALGAEWATCH_METRICS=src/model/artifacts/lake_anomaly/metrics.json`
+  `python -m pytest -q tests/test_model_integrity.py` → **10 pasaron, 5 xfailed**.
+  El reentrenamiento de media de lago pasa `no_fabricated_rows` (PR-3) y
+  `label_not_a_proxy` (inaplicable, una unidad); sigue en xfail MI-1 contra
+  persistencia, la verificación de regla trivial (f1 nulo), la verificación de
+  atajo con etiqueta constante, y la procedencia de estaciones.
 - Artefactos del modelo regenerados desde el `training_dataset.csv` versionado.
   Precisión, recall, F1, AUC y la matriz de confusión se reproducen exactamente;
   `mae_fai` se movió de 0,00865 a 0,00867 y la media de CV AUC de 0,9922 a
@@ -200,7 +226,11 @@ vuelo.
   que está anclada cada cifra de evidencia.
 - La ruta de carga del backend sigue funcionando contra los artefactos
   regenerados (`src.model.infer.load_artifacts`, `predict_risk`).
-- **El código de aplicación ya fue modificado**, por primera vez desde el fork:
-  `src/model/train.py` y los artefactos bajo `src/model/artifacts/`, más los
-  módulos y tests nuevos. `src/features/`, `backend/`, `frontend/`, `scripts/` y
-  `data/` siguen tal como los dejó el autor original.
+- **Código de aplicación modificado esta sesión** (rama
+  `fix/sf-model-gate-correctness`): `src/model/baselines.py`,
+  `src/model/integrity.py` (BL-029..032); nuevos `src/features/lake_anomaly.py`,
+  `src/model/lake_anomaly.py`, `scripts/train_lake_anomaly.py` (WI-005); tests
+  nuevos. Datos versionados nuevos: `data/processed/lake_anomaly_dataset.csv`,
+  `src/model/artifacts/lake_anomaly/`. `src/model/artifacts/` (el del backend) y
+  `src/model/train.py` están intactos byte a byte respecto del estado de WI-004;
+  `backend/`, `frontend/` sin tocar por `sf`.

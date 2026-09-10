@@ -1,0 +1,62 @@
+{
+  "version": "wi005-lake-anomaly-v1",
+  "signal": "lake_mean_fai",
+  "target": "standardised causal anomaly of lake_mean_fai at the horizon",
+  "fai_alert_threshold": 0.025916439519215278,
+  "n_pairs": 34,
+  "date_range": {
+    "start": "2025-11-25",
+    "end": "2026-08-17"
+  },
+  "horizons": {
+    "5": 10,
+    "6": 1,
+    "7": 11,
+    "8": 12
+  },
+  "features_used": [
+    "anomaly_now",
+    "horizon_days"
+  ],
+  "alpha": 1.0,
+  "cv": {
+    "scheme": "expanding-window chronological, per-row target-date embargo",
+    "n_folds": 4,
+    "fold_mae_fai": [
+      0.001977,
+      0.007495,
+      0.003521,
+      0.002684
+    ],
+    "fold_train_sizes": [
+      9,
+      15,
+      22,
+      27
+    ]
+  },
+  "metrics": {
+    "mae_fai": 0.003919,
+    "mae_fai_cv_std": 0.002135,
+    "precision": null,
+    "recall": null,
+    "f1_score": null,
+    "auc_roc": null
+  },
+  "baselines": {
+    "persistence": {
+      "rule": "fai_future == fai_now",
+      "mae_fai": 0.001362
+    },
+    "climatology": {
+      "rule": "fai_future == causal baseline mean",
+      "mae_fai": 0.000775
+    }
+  },
+  "beats_baselines": {
+    "persistence": false,
+    "climatology": false
+  },
+  "classification_reason": "precision/recall/F1/AUC are null: the recorded bloom threshold (0.025916) was calibrated on the contaminated station series and sits an order of magnitude above the lake-wide maximum (~0.002, EV-020), so bloom_7d is constant here and nothing is computable from it. Recalibrate the threshold on the lake-wide distribution before reporting a classification surface (ADR-sf-0008 D4, PR-3).",
+  "caveats": "TRL 2 \u2014 not validated in the field. Interim lake-mean retrain on 34 honest pairs (ADR-sf-0008): an honest measurement, not a shippable model. z_pred=0 reproduces climatology, so the model is reported against both persistence and climatology and climatology is the bar that matters. 18 of the 35 pass dates serve as both an anchor and a target, so residuals are not independent across rows (BL-033). One anchor sits ~15 sigma from its causal baseline \u2014 a real heavy tail in the series, not a preprocessing artefact. Superseded by per-pixel sampling when BL-007 lands (ADR 0004 D3)."
+}

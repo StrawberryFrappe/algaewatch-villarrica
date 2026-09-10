@@ -6,7 +6,7 @@ and final behavior.
 | Trace ID | Source / Decision | Work Item | Verification | Evidence |
 |---|---|---|---|---|
 | TR-001 | Kernel mount requested | WI-001 | Harness mount review | `agents/reviews/20260909/` |
-| TR-002 | SRC-002 supervisor: improve training | ADR 0004 D1, D2, D4 → WI-005 | Retrain with chronological splits and no fabricated rows | `EVIDENCE_INDEX.md` EV-007 onward |
+| TR-002 | SRC-002 supervisor: improve training | ADR 0004 D1, D2, D4 → ADR-sf-0008 → WI-005 (ADR-lq-0009) | **Done 2026-09-10.** Interim lake-mean retrain: continuous standardised-anomaly target, causal local baseline, one row per honest pair, expanding-window chronological CV with per-row target-date embargo. Candidate GATE-MODEL passes `no_fabricated_rows` and `label_not_a_proxy`; the model loses to persistence and climatology, reported as such (MI-1) | `EVIDENCE_INDEX.md` EV-019 to EV-021 |
 | TR-003 | SRC-002 supervisor: understand the numbers | Audit findings → `PROJECT_BRIEF.md` | Every figure reproducible from committed CSVs | `EVIDENCE_INDEX.md` EV-001 to EV-009 |
 | TR-004 | SRC-003 supervisor: use PyTorch | ADR 0002 → BL-008 only | Model trains under PyTorch with quantile heads | Pending. WI-005 (M2) deliberately does **not** use PyTorch: ADR 0002 rejects it on the four-station framing, so the honest retrain stays scikit-learn |
 | TR-005 | SRC-004 handoff mandates Mapbox; code ships Leaflet (CONF-003) | ADR 0003 provisional → WI-008 | `lq` settles it; ADR 0003 moves from provisional to accepted or superseded | **Done** 2026-09-10. `lq` confirmed Leaflet; ADR 0003 status now Accepted (provisional hold lifted); WI-008 done |

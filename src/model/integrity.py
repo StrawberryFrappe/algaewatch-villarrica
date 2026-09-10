@@ -54,13 +54,21 @@ STATION_PERCENTILE_CEILING = 99.0
 
 @dataclass(frozen=True)
 class CheckResult:
-    """One check's verdict, with the numbers that produced it."""
+    """One check's verdict, with the numbers that produced it.
+
+    `applicable` is False when the check's precondition is not met by the data —
+    a lake-wide table has one spatial unit, so `label_not_stratified_by_station`
+    has nothing to compare (ADR-sf-0008 D3, BL-031). An inapplicable check is
+    omitted from the gate's verdict, never reported as a pass; `run_all` drops
+    it, and a direct caller reads the flag.
+    """
 
     name: str
     passed: bool
     rule: str
     detail: str
     measured: dict = field(default_factory=dict)
+    applicable: bool = True
 
     def __bool__(self) -> bool:
         return self.passed
@@ -181,19 +189,27 @@ def check_chronological_split(split: Split, horizon_days: int = HORIZON_DAYS) ->
     The audited pipeline sliced the sorted frame and stopped, leaving the last
     training date equal to the first holdout date: a training row's target then
     reaches seven days into the validation window.
+
+    BL-029: the required gap is the table's own longest horizon when the split
+    carries one (`Split.max_horizon_days`), not the constant `HORIZON_DAYS`. A
+    7-day gap clears a 7-day horizon but leaks under the 8- and 9-day passes the
+    real cadence produces.
     """
     gap = split.gap_days
     measured = split.summary()
+    required = split.max_horizon_days if split.max_horizon_days is not None else horizon_days
     if gap is None:
         return CheckResult(
             "chronological_split", False, "MI-2",
             "No boundary could be computed — a partition is empty.", measured,
         )
-    passed = gap >= horizon_days
+    passed = gap >= required
     return CheckResult(
         "chronological_split", passed, "MI-2",
-        "Last train {} -> first holdout {}: gap {} day(s), required {}.".format(
-            split.last_train_date, split.first_holdout_date, gap, horizon_days
+        "Last train {} -> first holdout {}: gap {} day(s), required {} "
+        "(table max horizon {}).".format(
+            split.last_train_date, split.first_holdout_date, gap, required,
+            split.max_horizon_days,
         ),
         measured,
     )
@@ -207,7 +223,22 @@ def check_label_not_stratified_by_station(
     A pooled absolute threshold over stations with different local baselines
     produces exactly this: the station that always sits above it is labelled
     permanently blooming, the ones below it never.
+
+    BL-031: the guard lives here, not only in `run_all`. `tests/` calls this
+    function directly, so a dispatcher-only guard would still let a single-group
+    table return a 0.000-spread vacuous pass — which under `xfail(strict=True)`
+    surfaces as a spurious XPASS failure rather than the omission it is.
     """
+    n_groups = df[group_col].nunique() if group_col in df.columns else 0
+    if n_groups < 2:
+        return CheckResult(
+            "label_not_stratified_by_station", False, "ADR 0004 D2",
+            "Only {} spatial group(s) in {} — stratification by location is not "
+            "measurable; omitted from the verdict.".format(n_groups, group_col),
+            {"n_groups": int(n_groups)},
+            applicable=False,
+        )
+
     rates = df.groupby(group_col)[label_col].mean()
     spread = float(rates.max() - rates.min()) if len(rates) else float("nan")
     measured = {
@@ -333,7 +364,9 @@ def run_all(
 ) -> list[CheckResult]:
     """Every check that the supplied inputs make answerable.
 
-    A check whose inputs are missing is omitted rather than reported as a pass.
+    A check whose inputs are missing is omitted rather than reported as a pass:
+    `check_station_points_on_water` when no catalogue is supplied, and any check
+    that returns `applicable=False` for the data it was given (BL-031).
     """
     results = [
         check_beats_persistence(model_metrics, split),
@@ -345,4 +378,4 @@ def run_all(
     ]
     if stations is not None and water_points is not None:
         results.append(check_station_points_on_water(stations, water_points, station_series))
-    return results
+    return [r for r in results if r.applicable]
