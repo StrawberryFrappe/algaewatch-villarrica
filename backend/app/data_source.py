@@ -199,7 +199,7 @@ def get_forecast(iso_date: str) -> dict:
     return {"stations": stations_out, "lake_mean_risk_7d": lake_mean_7d, "stations_in_alert": alerts}
 
 
-def _interval_confidence(q10: float, q90: float) -> int:
+def _interval_confidence(q10: float, q90: float, threshold: float = None) -> int:
     """Turn a q10-q90 prediction interval into a 0-100 confidence figure.
 
     Deliberately NOT the same quantity as the legacy model's `confidence_pct`,
@@ -207,19 +207,33 @@ def _interval_confidence(q10: float, q90: float) -> int:
     a quantile regressor: it states nothing about a bloom probability, but it does
     state how wide it believes the outcome could be.
 
-    The band is measured against the *decision* scale — twice the calibrated
-    alert threshold — rather than against the predicted value. Scaling by the
-    value itself collapses to 0 whenever the prediction sits near zero, which is
-    most of this lake most of the time, and would report a well-calibrated
-    interval (measured coverage 0.81 against 0.80 nominal) as no confidence at
-    all. What a reader wants to know is whether the band is tight enough to
-    separate "below the alert threshold" from "above it".
+    The band is measured against the alert threshold in force, not against the
+    predicted value. Scaling by the value itself collapses to 0 whenever the
+    prediction sits near zero, which is most of this lake most of the time, and
+    would report a well-calibrated interval (measured coverage 0.81 against 0.80
+    nominal) as no confidence at all. What a reader wants to know is whether the
+    band is tight enough to separate "below the alert threshold" from "above it".
+
+    Only the candidate path uses this. The legacy model reports a classifier
+    probability's distance from a coin flip instead (see `get_forecast`), and
+    nothing here touches that.
+
+    `threshold` defaults to the legacy station-scale constant; the candidate
+    passes its own water-scale threshold, since the two differ by a factor of
+    ~7 and a confidence figure scaled to the wrong one is meaningless.
+
+    The form is `t / (t + width)` rather than `1 - width/2t`. The latter floors
+    at zero as soon as the band exceeds twice the threshold, which on the
+    water-scale threshold is most of the time — reporting a flat 0% that reads as
+    a broken field rather than as a wide interval. This form is monotonic over
+    the whole range, hits 100 only at a degenerate interval, and approaches but
+    never reaches 0, so a wide band still ranks against another wide band.
     """
     width = max(0.0, q90 - q10)
-    scale = 2 * THRESHOLD
+    scale = THRESHOLD if threshold is None else threshold
     if scale <= 0:
         return 0
-    return round(100 * max(0.0, min(1.0, 1.0 - width / scale)))
+    return round(100 * scale / (scale + width))
 
 
 def _load_candidate_forecast_df():
@@ -238,14 +252,37 @@ def get_candidate_forecast(iso_date: str) -> dict:
     is: the candidate is optional, and a checkout that has not run
     `scripts/predict_per_pixel_forecast.py` must still serve the dashboard.
 
-    `iso_date` sets the comparison baseline (`delta_vs_previous_week` against the
-    present risk on that date) but does NOT select the projection. The candidate's
-    newest anchor is fixed by the dataset, so there is exactly one projection —
-    the same arrangement `/risk/grid` already has. The anchor and target dates
-    ride along in the payload rather than being implied by the request.
+    The candidate can only project from a real Sentinel-2 pass, so `iso_date`
+    selects the most recent anchor at or before it rather than producing a
+    forecast for that exact day. The chosen anchor and its target date ride in
+    the payload; the UI shows them instead of implying the request date.
+
+    The alert threshold comes from the table, not from the legacy artifact. The
+    legacy `THRESHOLD` was calibrated on station-point FAI contaminated by
+    shoreline vegetation and sits ~6.6x above the p99 of real water FAI, which
+    flattens every per-pixel prediction to the bottom of the scale. See
+    ALERT_PERCENTILE in scripts/predict_per_pixel_forecast.py and BL-039.
     """
     df = _load_candidate_forecast_df()
-    by_station = {row.station_id: row for row in df.itertuples()}
+
+    anchors = sorted(df["anchor_date"].astype(str).unique())
+    eligible = [a for a in anchors if a <= iso_date]
+    if not eligible:
+        # The slider reaches back to MIN_DATE (2025-09-04), which is ~3 months
+        # before the first anchor (2025-11-25). Falling back to the earliest
+        # anchor there would hand the user a projection built from data that had
+        # not been captured yet on the date they selected. The candidate simply
+        # has nothing to say about that window; the router turns this into a 404
+        # and the client falls back to the legacy model with a notice.
+        raise DataNotReadyError(
+            f"The per-pixel candidate has no anchor at or before {iso_date} "
+            f"(earliest is {anchors[0]})."
+        )
+    anchor = eligible[-1]
+
+    rows = df[df["anchor_date"].astype(str) == anchor]
+    by_station = {row.station_id: row for row in rows.itertuples()}
+    threshold = float(rows["alert_threshold"].iloc[0])
     current = {s["station_id"]: s["risk"] for s in get_risk(iso_date)["stations"]}
 
     stations_out = []
@@ -253,7 +290,7 @@ def get_candidate_forecast(iso_date: str) -> dict:
         row = by_station.get(s.id)
         if row is None:
             continue
-        risk = fai_to_risk(float(row.fai_q50))
+        risk = fai_to_risk(float(row.fai_q50), threshold)
         stations_out.append({
             "station_id": s.id,
             "risk_7d": risk,
@@ -261,7 +298,7 @@ def get_candidate_forecast(iso_date: str) -> dict:
             "fai_7d": float(row.fai_q50),
             "delta_vs_previous_week": risk - current.get(s.id, 0),
             "confidence_pct": _interval_confidence(
-                float(row.fai_q10), float(row.fai_q90)
+                float(row.fai_q10), float(row.fai_q90), threshold
             ),
         })
 
@@ -272,14 +309,15 @@ def get_candidate_forecast(iso_date: str) -> dict:
 
     lake_mean_7d = round(sum(s["risk_7d"] for s in stations_out) / len(stations_out))
     alerts = sum(1 for s in stations_out if s["risk_7d"] >= 45)
-    first = df.iloc[0]
+    first = rows.iloc[0]
     return {
         "stations": stations_out,
         "lake_mean_risk_7d": lake_mean_7d,
         "stations_in_alert": alerts,
-        "anchor_date": str(first["anchor_date"]),
+        "anchor_date": anchor,
         "target_date": str(first["target_date"]),
         "horizon_days": int(first["horizon_days"]),
+        "alert_threshold": threshold,
     }
 
 

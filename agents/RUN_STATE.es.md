@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 7ff9450df6250fb57f16dabfda41b5566c3e8e00
+source_sha: 104de2b37afe0f9eed2fbd819ca2d7e0735f4fcc
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -22,10 +22,21 @@ Segundo, y el punto de la demo: **el candidato per-píxel efectivamente alimenta
 `/forecast`** detrás de un selector `model=legacy|candidate` (ADR-lq-0011), vía
 una tabla de predicción commiteada que escribe el nuevo
 `scripts/predict_per_pixel_forecast.py`. El mapa (`/risk`, `/risk/grid`) queda
-deliberadamente intacto y sigue sin depender de modelos. Tests: 100 pasados /
-8 xfailed; GATE-MODEL sin cambios con 9 pasados / 8 xfailed. Revisado
-independientemente en dos pasadas (frontend: 0 bugs; Fase 5: sin hallazgos).
-**Sin commitear, sin mergear.**
+deliberadamente intacto y sigue sin depender de modelos.
+
+**El umbral de alerta del candidato se recalibró a la escala del agua (BL-039,
+ADR-lq-0011 D3b).** La primera versión reusaba el 0,025916 legacy, calibrado
+sobre puntos de estación que caen sobre vegetación de orilla y que es ~6,6 veces
+el p99 del FAI real por píxel de agua — así que toda predicción del candidato
+colapsaba a riesgo ≈ 5 y la superficie de riesgo quedaba vacía, exactamente como
+advertía ADR-sf-0008. Ahora usa el p99 de `fai_future` observado (0,003810), y se
+emiten las 34 fechas ancla en vez de solo la más reciente. El riesgo del
+candidato ahora recorre de 1 a 35 y su máximo cae en `sur` entre enero y marzo —
+la bahía propensa a floraciones, en verano austral.
+
+Tests: 103 pasados / 8 xfailed; GATE-MODEL sin cambios con 9 pasados / 8 xfailed.
+Revisado independientemente en tres pasadas. El primer push fue `742cdb6`; el
+trabajo del umbral va encima. **Sin mergear.**
 
 ## Fase Anterior
 

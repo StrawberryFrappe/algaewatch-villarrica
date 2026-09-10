@@ -64,15 +64,67 @@ is no longer the training unit." Two of those four coordinates are off the water
 so their nearest pixels are shoreline-adjacent; that limitation is inherited from
 the station catalog, not introduced here.
 
+### D3b — The candidate gets a water-scale alert threshold (BL-039)
+
+Amended 2026-09-10, after the first implementation shipped with this wrong.
+
+The legacy `fai_alert_threshold` of 0.025916 cannot be reused for per-pixel
+predictions. It was calibrated on station-point FAI, and two of the four station
+coordinates sit off the water on shoreline vegetation (BL-027), which reads an
+order of magnitude higher than open water. Measured against the real per-pixel
+distribution — p50 0.000, p95 0.0021, p99 0.0038 — the legacy constant is ~6.6x
+above the p99, so every candidate prediction collapsed to risk ≈ 5 and the whole
+risk surface was vacuous. "Every station MUY_BAJO" was an artifact of the
+yardstick, not a finding about the lake.
+
+ADR-sf-0008 recorded this failure mode in advance and it was implemented anyway.
+
+The candidate now uses the **p99 of observed per-pixel `fai_future`**
+(0.003810), computed in `scripts/predict_per_pixel_forecast.py` and carried in
+the prediction table so the backend never recomputes it. Risk then spans 1–35
+across anchors instead of 1–9, and the high end is `sur` in January–March —
+austral summer, when cyanobacteria actually bloom here, and the bay that blooms.
+Seasonal and spatial structure both appear.
+
+This is a **distributional** threshold: "in the top 1% of FAI observed on this
+lake's water surface". It is not a validated bloom threshold and must never be
+presented as one — there is no in-situ data to validate against while
+`src/features/insitu.py` remains a stub (PR-3). It is applied at serving time
+only, never in training, per rule MI-3. The API returns it and the UI names the
+scale, so the two models' risk numbers are not silently compared against
+different lines.
+
+The legacy path keeps the legacy threshold. Changing it would move committed
+evidence figures, and the contrast between a station-contaminated threshold and a
+water-scale one is itself part of what the demo shows.
+
+### D3c — Every anchor date is emitted, not only the newest
+
+Emitting a single projection pinned the dashboard to the 2026-08-17 anchor, which
+is austral winter: predicted FAI is near zero there at any threshold, so the
+recalibration would have been invisible. The table now carries all 34 anchors and
+`get_candidate_forecast` selects the most recent anchor at or before the
+requested date — never a later one, which would show a projection built from the
+user's future.
+
 ### D4 — Confidence is measured against the decision scale
 
 The legacy `confidence_pct` is a classifier probability's distance from a coin
 flip. A quantile regressor has no such quantity, so the candidate reports
-`100 · (1 − width / 2·threshold)` bounded to 0–100: how tight the q10–q90 band is
-relative to the alert threshold it would have to resolve. Scaling by the predicted
-value instead collapses to zero whenever the prediction sits near zero — which is
-most of this lake most of the time — and would report a well-calibrated interval as
-no confidence at all.
+`100 · t / (t + width)`: how tight the q10–q90 band is relative to the alert
+threshold it would have to resolve. Scaling by the predicted value instead
+collapses to zero whenever the prediction sits near zero — which is most of this
+lake most of the time — and would report a well-calibrated interval as no
+confidence at all.
+
+The first form, `1 − width / 2t`, floors at zero as soon as the band exceeds
+twice the threshold. On the water-scale threshold of D3b that is the common case,
+so it reported a flat 0% that read as a broken field rather than as a wide
+interval. The ratio form is monotonic over the whole range and never quite
+reaches zero, so two wide bands still rank against each other. Reported values
+now sit in the 20–60% range, which is the honest answer: this model's interval is
+wide relative to the threshold it is being asked to resolve, which is the same
+fact its baseline losses report.
 
 ## Consequences
 

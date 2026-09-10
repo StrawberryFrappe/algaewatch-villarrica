@@ -1,6 +1,6 @@
 import { Sparkline, sparklineNow, sparklineRange } from '../Sparkline';
 import { MODELS, Segmented } from '../Segmented';
-import { formatDateEs } from '../../utils/format';
+import { formatDateEs, numEs } from '../../utils/format';
 import { riskPresentation } from '../../utils/risk';
 
 // Muted chart series colours for the light theme (ADR-lq-0008) — not the risk
@@ -83,10 +83,20 @@ export function AnalyticsPanel({
                 letterSpacing: 0.5,
                 color: 'var(--color-accent-ink)',
                 fontWeight: 600,
+                lineHeight: 1.5,
               }}
             >
               MODELO CANDIDATO · PER-PÍXEL + ERA5
-              {forecast.target_date ? ` · PROYECCIÓN AL ${formatDateEs(forecast.target_date).toUpperCase()}` : ''}
+              {forecast.anchor_date ? ` · ANCLA ${formatDateEs(forecast.anchor_date).toUpperCase()}` : ''}
+              {forecast.target_date ? ` → ${formatDateEs(forecast.target_date).toUpperCase()}` : ''}
+              {forecast.alert_threshold != null && (
+                <>
+                  <br />
+                  <span style={{ color: 'var(--color-text-dim)', fontWeight: 400 }}>
+                    Escala de agua · umbral {numEs(forecast.alert_threshold, 5)} (p99 observado, no validado en campo)
+                  </span>
+                </>
+              )}
             </span>
           )}
         </div>

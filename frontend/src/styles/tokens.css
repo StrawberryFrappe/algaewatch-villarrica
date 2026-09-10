@@ -76,8 +76,20 @@ html, body, #root {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: var(--surface-page);
 }
+
+/* The lake backdrop lives on `body` itself, NOT on a z-index:-1 pseudo-element.
+   Negative-z-index children paint before block-level descendants' backgrounds,
+   so an opaque #root background covers them completely — which is exactly what
+   silently hid this image. `html` keeps the flat page colour as the base, and
+   #root must stay transparent for any of this to be visible. */
+html { background: var(--surface-page); }
+body {
+  background:
+    linear-gradient(165deg, rgba(240, 244, 250, 0.72), rgba(232, 238, 247, 0.80) 55%, rgba(226, 233, 246, 0.76)),
+    url('/lake-villarrica-bg.jpg') center / cover no-repeat fixed var(--surface-page);
+}
+#root { background: transparent; }
 
 body, input, button {
   font-family: var(--font-family);

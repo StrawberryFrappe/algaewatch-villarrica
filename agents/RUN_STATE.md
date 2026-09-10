@@ -12,10 +12,20 @@ deviation), a faint Lake Villarrica satellite backdrop replaced the flat white, 
 per-pixel candidate actually serves `/forecast`** behind a `model=legacy|candidate`
 switch (ADR-lq-0011), via a committed prediction table written by the new
 `scripts/predict_per_pixel_forecast.py`. The map (`/risk`, `/risk/grid`) is
-deliberately untouched and still model-free. Tests 100 passed / 8 xfailed;
-GATE-MODEL unchanged at 9 passed / 8 xfailed. Independently reviewed in two passes
-(frontend: 0 bugs; Phase 5 review in flight at time of writing). **Not committed,
-not merged.**
+deliberately untouched and still model-free.
+
+**The candidate's alert threshold was recalibrated to the water scale (BL-039,
+ADR-lq-0011 D3b).** The first cut reused the legacy 0.025916, which was
+calibrated on station points sitting on shoreline vegetation and is ~6.6x the p99
+of real per-pixel water FAI — so every candidate prediction collapsed to risk ≈ 5
+and the risk surface was vacuous, exactly as ADR-sf-0008 warned. It now uses the
+p99 of observed `fai_future` (0.003810), and all 34 anchor dates are emitted
+rather than only the newest. Candidate risk spans 1–35 and peaks at `sur` in
+January–March — the bloom-prone bay in austral summer.
+
+Tests 103 passed / 8 xfailed; GATE-MODEL unchanged at 9 passed / 8 xfailed.
+Reviewed independently across three passes. First push was `742cdb6`; the
+threshold work is on top of it. **Not merged.**
 
 ## Earlier Phase
 

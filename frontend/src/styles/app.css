@@ -9,20 +9,8 @@
   background: transparent;
 }
 
-/* Faint Lake Villarrica satellite backdrop so the gutters and gaps between
-   panels are not flat white. A near-opaque page-toned wash sits on top of the
-   image, so only ~8–12% of the photo reads through — enough for depth, not so
-   much that it competes with content. Fixed so it does not scroll. */
-.shell::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    linear-gradient(165deg, rgba(240, 244, 250, 0.90), rgba(232, 238, 247, 0.94) 55%, rgba(226, 233, 246, 0.92)),
-    url('/lake-villarrica-bg.jpg') center / cover no-repeat;
-}
+/* The lake backdrop is painted on `body` in tokens.css — see the note there for
+   why a z-index:-1 pseudo-element here could never work. */
 
 /* Centred content column with breathing gutters that grow on wider screens. */
 .container {

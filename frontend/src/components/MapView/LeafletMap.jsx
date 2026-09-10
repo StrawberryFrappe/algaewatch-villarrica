@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { CircleMarker, MapContainer, Marker, Popup, ScaleControl, TileLayer, Tooltip } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Popup, ScaleControl, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { HeatLayer } from './HeatLayer';
 import { LakeMask } from './LakeMask';
@@ -18,6 +18,38 @@ const MAX_BOUNDS = [
   [-39.38, -72.28], // SW
   [-39.17, -71.90], // NE
 ];
+
+// Leaflet caches its container's dimensions and only recomputes them on a
+// *window* resize. Collapsing the analytics panel (380px -> 48px) resizes the
+// map's container without the window changing at all, so Leaflet keeps drawing
+// at the old width: a dead strip where the new area appeared, tiles that never
+// load into it, and markers whose hit targets sit off from where they render.
+// The <900px breakpoint that stacks the layout has the same problem.
+//
+// A ResizeObserver on the container is the fix. It also repairs HeatLayer's
+// retry path, which waits on Leaflet's `resize` event that previously never
+// fired for a container-only resize.
+function AutoResize() {
+  const map = useMap();
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const container = map.getContainer();
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      // Coalesce the burst a resize produces into one invalidate per frame.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => map.invalidateSize());
+    });
+    observer.observe(container);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [map]);
+
+  return null;
+}
 
 function pulseIcon(hex) {
   return L.divIcon({
@@ -101,6 +133,7 @@ export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave
         maxZoom={19}
       />
       <ScaleControl position="bottomright" imperial={false} />
+      <AutoResize />
       <HeatLayer points={heatPoints} />
       <LakeMask />
       {stations.map((s) => (

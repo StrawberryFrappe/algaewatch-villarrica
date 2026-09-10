@@ -117,4 +117,5 @@ async def forecast(
         model_used=model,
         anchor_date=result.get("anchor_date"),
         target_date=result.get("target_date"),
+        alert_threshold=result.get("alert_threshold", THRESHOLD),
     )

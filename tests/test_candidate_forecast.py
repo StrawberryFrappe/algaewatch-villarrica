@@ -119,6 +119,62 @@ def test_forecast_endpoint_404s_when_the_candidate_table_is_missing(monkeypatch)
     assert excinfo.value.status_code == 404
 
 
+def test_candidate_threshold_is_on_the_water_scale_not_the_station_scale() -> None:
+    """BL-039. The legacy threshold was calibrated on station points sitting on
+    shoreline vegetation and is ~7x the p99 of real water FAI. Reusing it for the
+    candidate flattens every prediction to the bottom of the risk scale, which is
+    what ADR-sf-0008 warned about. This pins the two apart."""
+    import pandas as pd
+
+    from backend.app.data_source import THRESHOLD, MAX_DATE, get_candidate_forecast
+
+    result = get_candidate_forecast(MAX_DATE)
+    candidate_threshold = result["alert_threshold"]
+
+    assert candidate_threshold < THRESHOLD / 2, (
+        "candidate threshold has drifted back toward the station-scale constant"
+    )
+
+    dataset = REPO_ROOT / "data" / "processed" / "per_pixel_anomaly_dataset.csv"
+    if dataset.exists():
+        water = pd.read_csv(dataset)["fai_future"].dropna()
+        # It must sit inside the distribution it is meant to describe, not above it.
+        assert water.quantile(0.90) < candidate_threshold < water.max()
+
+
+def test_candidate_risk_varies_across_anchors() -> None:
+    """A threshold on the wrong scale collapses every station to the same floor.
+    The recalibrated one must produce an actual spread, otherwise the switch
+    demos as 'the new model says nothing ever happens'."""
+    from backend.app.data_source import get_candidate_forecast
+
+    risks = []
+    for date in ("2026-01-18", "2026-02-05", "2026-09-10"):
+        risks.extend(s["risk_7d"] for s in get_candidate_forecast(date)["stations"])
+
+    assert max(risks) - min(risks) >= 10, f"risk barely varies: {sorted(set(risks))}"
+
+
+def test_candidate_anchor_never_follows_the_requested_date(forecast_table) -> None:
+    """The candidate can only project from a real satellite pass, so it must
+    select an anchor at or before the requested date - never a later one, which
+    would be showing the user a projection made from data from their future.
+
+    The pre-first-anchor case is the one that matters: MIN_DATE on the slider is
+    2025-09-04 and the earliest anchor is 2025-11-25, so roughly three months of
+    the timeline fall into that gap and are reachable by dragging.
+    """
+    from backend.app.data_source import DataNotReadyError, get_candidate_forecast
+
+    for date in ("2026-02-05", "2026-05-01", "2026-09-10"):
+        assert get_candidate_forecast(date)["anchor_date"] <= date
+
+    earliest = min(forecast_table["anchor_date"].astype(str))
+    before = (pd.Timestamp(earliest) - pd.Timedelta(days=1)).date().isoformat()
+    with pytest.raises(DataNotReadyError):
+        get_candidate_forecast(before)
+
+
 def test_interval_confidence_is_bounded_and_monotonic() -> None:
     """A wider band must never report more confidence than a narrower one, and
     the figure has to stay on the 0-100 scale whatever the interval does."""

@@ -282,9 +282,15 @@ export function ModelView({
       </p>
       <p className="model-lede" style={{ marginTop: 8 }}>
         Este selector <strong>cambia el modelo que produce el pronóstico</strong> del
-        panel analítico, no solo las métricas de abajo. El mapa (riesgo actual y
-        grilla FAI) es una lectura directa del satélite y no depende de ningún
-        modelo.
+        panel analítico, no solo las métricas de abajo.
+      </p>
+      <p className="model-lede" style={{ marginTop: 8 }}>
+        El mapa todavía <strong>no usa ningún modelo entrenado</strong>. En las 56
+        fechas con pasada Sentinel-2 muestra la lectura real; en las otras 316 del
+        deslizador arrastra el último valor conocido, que es exactamente la línea
+        base de <em>persistencia</em>. Es decir: el 85% de las fechas del mapa ya
+        están siendo «predichas», y por el método más tonto posible. Ahí es donde
+        un modelo tiene que aportar, y todavía no lo hace.
       </p>
 
       <Segmented

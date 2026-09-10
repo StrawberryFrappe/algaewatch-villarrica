@@ -96,6 +96,13 @@ class ForecastResponse(BaseModel):
     model_used: Literal["legacy", "candidate"] = "legacy"
     anchor_date: str | None = None
     target_date: str | None = None
+    # The alert threshold this projection's risk scale is centred on. The legacy
+    # path uses the station-calibrated constant; the candidate uses a
+    # distributional water-scale threshold (p99 of observed per-pixel FAI), which
+    # is ~7x smaller. Surfaced so the UI can name the scale rather than implying
+    # the two risk numbers are measured against the same line. Neither is a
+    # clinically validated bloom threshold.
+    alert_threshold: float | None = None
 
 
 class ConfusionMatrix(BaseModel):
