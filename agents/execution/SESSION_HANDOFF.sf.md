@@ -12,7 +12,7 @@ Branch **`develop`**, pushed through `c3beadf`; later commits are local only.
 `main` is untouched at `912376c`.
 
 ```
-<this session>  docs(harness): record WI-005's design, its blockers, ADR-sf-0008
+f4c8f2d         docs(harness): settle WI-005's signal, record the defects that block it
 c875514         fix(harness): hash LF-normalized bytes in the translation gate
 c3beadf         docs(harness): add a session handoff and write down branch naming
 23b30ca         docs(harness): record WI-004, the station-provenance defect, and cleared blockers
