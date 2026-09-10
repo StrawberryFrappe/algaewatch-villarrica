@@ -1,0 +1,15 @@
+# Line endings for the agent harness.
+#
+# GATE-I18N compares `git hash-object --no-filters`, which hashes the bytes on
+# disk. Without a pinned rule, a contributor whose core.autocrlf differs from
+# another's will see translation drift on files nobody edited, and a checker that
+# cries wolf gets ignored. See ADR-sf-0006 and agents/i18n/TRANSLATION_PROTOCOL.md.
+#
+# Scoped to the harness on purpose. A repo-wide `*.md text eol=lf` would
+# renormalize the original author's README files in the same change that hands
+# him the repository.
+
+AGENTS.md       text eol=lf
+AGENTS.es.md    text eol=lf
+agents/**/*.md  text eol=lf
+agents/**/*.py  text eol=lf
