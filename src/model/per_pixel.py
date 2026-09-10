@@ -114,19 +114,52 @@ def spatiotemporal_folds(
         yield train, val, meta
 
 
+def _inner_split(train: pd.DataFrame, holdout_fraction: float) -> tuple[pd.Index, pd.Index]:
+    """Carve the latest training anchor dates off as an inner validation set.
+
+    Split by date, not by row, so the inner set is a temporal hold-out of the
+    same shape as the outer fold. It is taken entirely from the training
+    partition, so the outer validation rows stay untouched and early stopping
+    cannot leak the reported number (ADR-sf-0010 D6).
+    """
+    dates = pd.Index(sorted(pd.to_datetime(train["date"]).dt.normalize().unique()))
+    if len(dates) < 3:
+        # Too few anchors to hold any back and still have something to fit on.
+        # Caller falls back to a fixed epoch budget.
+        return train.index, pd.Index([])
+    # Floor of one date: int(4 * 0.2) == 0 would silently disable early stopping
+    # on the small folds, which is where overfitting bites hardest.
+    n_holdout = max(1, int(len(dates) * holdout_fraction))
+    cutoff = dates[len(dates) - n_holdout]
+    row_dates = pd.to_datetime(train["date"]).dt.normalize()
+    return train.index[row_dates < cutoff], train.index[row_dates >= cutoff]
+
+
 def fit_quantile_model(
     train: pd.DataFrame,
     *,
     epochs: int = 80,
     batch_size: int = 2048,
     learning_rate: float = 1e-3,
+    patience: int = 8,
+    inner_holdout_fraction: float = 0.2,
 ) -> tuple[QuantileMLP, FeatureScaler]:
+    """Fit the quantile MLP, early-stopping on an inner temporal hold-out.
+
+    The signal in this table is weak enough that an unregularised fit is worse
+    than predicting the climatological mean: every additional epoch past the
+    inner-loss minimum buys memorised noise. Early stopping is chosen on data
+    the outer fold never sees, so the reported MAE stays an honest hold-out
+    number rather than a tuned one.
+    """
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    values = train[list(FEATURES)].to_numpy(dtype=np.float32)
+    fit_index, inner_index = _inner_split(train, inner_holdout_fraction)
+
+    values = train.loc[fit_index, list(FEATURES)].to_numpy(dtype=np.float32)
     scaler = FeatureScaler.fit(values)
     inputs = torch.from_numpy(scaler.transform(values).astype(np.float32))
-    target = torch.from_numpy(train[TARGET].to_numpy(dtype=np.float32))
+    target = torch.from_numpy(train.loc[fit_index, TARGET].to_numpy(dtype=np.float32))
     dataset = TensorDataset(inputs, target)
     generator = torch.Generator().manual_seed(SEED)
     loader = DataLoader(
@@ -136,15 +169,46 @@ def fit_quantile_model(
         generator=generator,
     )
 
-    model = QuantileMLP()
+    if len(inner_index):
+        inner_values = train.loc[inner_index, list(FEATURES)].to_numpy(dtype=np.float32)
+        inner_inputs = torch.from_numpy(scaler.transform(inner_values).astype(np.float32))
+        inner_target = torch.from_numpy(
+            train.loc[inner_index, TARGET].to_numpy(dtype=np.float32)
+        )
+    else:
+        inner_inputs = inner_target = None
+
+    model = QuantileMLP(n_features=len(FEATURES))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
-    model.train()
+
+    best_loss = float("inf")
+    best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    since_improved = 0
+
     for _ in range(epochs):
+        model.train()
         for batch_inputs, batch_target in loader:
             optimizer.zero_grad()
             loss = pinball_loss(model(batch_inputs), batch_target)
             loss.backward()
             optimizer.step()
+
+        if inner_inputs is None:
+            continue
+        model.eval()
+        with torch.no_grad():
+            inner_loss = float(pinball_loss(model(inner_inputs), inner_target))
+        if inner_loss < best_loss - 1e-9:
+            best_loss = inner_loss
+            best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+            since_improved = 0
+        else:
+            since_improved += 1
+            if since_improved >= patience:
+                break
+
+    if inner_inputs is not None:
+        model.load_state_dict(best_state)
     return model.eval(), scaler
 
 

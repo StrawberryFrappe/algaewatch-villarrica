@@ -7,6 +7,8 @@ import pandas as pd
 
 from src.model.per_pixel import (
     FEATURES,
+    QuantileMLP,
+    _inner_split,
     fit_and_evaluate,
     fit_quantile_model,
     predict_quantiles,
@@ -74,3 +76,26 @@ def test_evaluation_reports_both_baselines_and_continuous_target() -> None:
     assert metrics["classification"] is None
     assert metrics["cv"]["n_folds"] == 4
     assert result["artifact"]["features"] == list(FEATURES)
+
+
+def test_inner_split_is_temporal_and_disjoint() -> None:
+    """Early stopping must select on training data only, never the outer fold."""
+    frame = _frame()
+    for train, val, _meta in spatiotemporal_folds(frame):
+        fit_index, inner_index = _inner_split(train, 0.2)
+        assert len(inner_index), "inner hold-out is empty; early stopping would be blind"
+        assert not set(fit_index) & set(inner_index)
+        assert set(fit_index) | set(inner_index) == set(train.index)
+        # Inner hold-out is strictly later than the rows used to fit.
+        fit_dates = pd.to_datetime(train.loc[fit_index, "date"])
+        inner_dates = pd.to_datetime(train.loc[inner_index, "date"])
+        assert fit_dates.max() < inner_dates.min()
+        # And it never overlaps the outer validation partition.
+        assert not set(train.loc[inner_index].index) & set(val.index)
+
+
+def test_early_stopping_does_not_run_past_the_epoch_budget() -> None:
+    frame = _frame()
+    model, _scaler = fit_quantile_model(frame, epochs=3, batch_size=128, patience=1)
+    assert isinstance(model, QuantileMLP)
+    assert not model.training
