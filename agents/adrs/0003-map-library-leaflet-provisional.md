@@ -2,8 +2,21 @@
 
 ## Status
 
-Accepted — provisional. Deliberately reversible pending consultation with the
-original author.
+Accepted. Confirmed by the original author (`lq`) on 2026-09-10, who now owns
+the frontend half (ADR-sf-0005). Leaflet stands; Mapbox is not pursued before
+the pitch. The provisional hold is lifted.
+
+Rationale for the confirmation: the Esri satellite + labels basemap already
+matches the visual outcome the handoff specified Mapbox for, with no token and
+no request quota, and it preserves the project's credential-free local run. A
+migration would cost a new credential and a MapView rewrite with roughly a day
+to the pitch. The two genuine handoff requirements Mapbox would have eased —
+clipping the risk overlay to the lake (BL-010) and replacing the risk colour
+ramp (BL-009) — are library-independent and are being done in Leaflet.
+
+The deviation from SRC-004 is now a settled, recorded decision rather than a
+provisional one. Revisit only if a future need (e.g. vector-tile styling or
+server-driven raster overlays) makes the Leaflet raster-tile ceiling binding.
 
 ## Context
 

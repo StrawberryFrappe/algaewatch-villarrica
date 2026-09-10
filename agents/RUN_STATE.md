@@ -45,6 +45,20 @@ ADR-sf-0008, and a design review found three defects in already-committed code
   resolves it. Nothing had leaked: it was untracked, and EV-006 still holds.
 - Existing project rules preserved and fused into `AGENTS.md` as PR-1 to PR-4.
 - Two working languages, GATE-I18N active (ADR-sf-0006).
+- **`lq`'s frontend work is merged, and it arrived on `main`.** ADR 0003 accepted
+  (Leaflet stands), WI-009's credibility pass done with screenshots — BL-009's
+  CVD-validated magma ramp, BL-010's overlay clipped to the lake, BL-013's
+  staleness disclosure, BL-019's TRL-2 seal now actually rendered, BL-021's glass
+  and halos cut — plus a light pastel theme and topbar (ADR-lq-0008). Both commits
+  went straight to `main`, which `WORKFLOW.md` reserves for released state merged
+  from `develop`; `develop` now contains them by merge.
+- **One ID collision, resolved by mint order.** Two work items were minted as
+  WI-011: the venv install at 00:34:51, `lq`'s light-theme pass at 01:17:17 from a
+  base holding neither. WI-011 stays the venv install; the theme pass is WI-013.
+  `lq` also re-marked WI-010 as blocked against EV-017 — not a disagreement, he
+  had not fetched the branch that recorded it. Restored to done, with its scope
+  now stated as `sf`'s machine. The full note is in `WORK_ITEMS.md`; the
+  append-at-the-end rule is what made both visible instead of silent.
 - **GATE-I18N was failing, and the check was what was wrong.** The status below
   claimed 5 of 5 current; the next session's first run reported one stale.
   `RUN_STATE.es.md` had recorded the **CRLF** blob sha of a source it had in fact
@@ -91,7 +105,8 @@ installs — `sentinelhub`, `cdsapi`, `rasterio`, `xarray` — turn working
 credentials into a runnable pipeline, which gives BL-007 the per-pixel grid, which
 turns 35 rows into roughly 65,000 (EV-008).
 
-`lq` still owes ADR 0003 before frontend work begins.
+`lq`'s half has moved: ADR 0003 accepted, WI-008 and WI-009 done, plus a
+light-theme pass (WI-013). Merged into `develop` at the end of this session.
 
 A session handoff covering what was done, what the backlog expects next, and
 how to resume from `develop` is at `agents/execution/SESSION_HANDOFF.sf.md`.
@@ -133,8 +148,8 @@ Kept current so another contributor can pick this up mid-flight.
 - **WI-012 / BL-027 — station coordinates.** Blocked on the real GPS arriving
   with the SNIA CSVs. Until then, ADR-sf-0007 disqualifies station-point FAI as a
   training signal, and `check_station_points_on_water` enforces it.
-- **ADR 0003** (map library) is `lq`'s to settle and he has not yet answered.
-  Frontend work should not begin before he does.
+- **ADR 0003 is settled** and no longer blocks anything. Leaflet stands, accepted
+  by `lq` on 2026-09-10, and WI-008 and WI-009 are both done.
 
 ## Last Verified State
 

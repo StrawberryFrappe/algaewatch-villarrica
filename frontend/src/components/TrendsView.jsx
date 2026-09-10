@@ -2,9 +2,9 @@ import { Sparkline, sparklineNow, sparklineRange } from './Sparkline';
 import { formatDateEs } from '../utils/format';
 
 const CHART_DEFS = [
-  { key: 'water_temp_c', label: 'Temperatura superficial', decimals: 1, unit: ' °C', color: '#0A84FF', fill: 'rgba(10,132,255,0.2)' },
-  { key: 'ph', label: 'pH', decimals: 2, unit: '', color: '#30D158', fill: 'rgba(48,209,88,0.16)' },
-  { key: 'fai', label: 'Índice FAI (clorofila-a)', decimals: 3, unit: '', color: '#FF9F0A', fill: 'rgba(255,159,10,0.16)' },
+  { key: 'water_temp_c', label: 'Temperatura superficial', decimals: 1, unit: ' °C', color: '#5B77C2', fill: 'rgba(91,119,194,0.14)' },
+  { key: 'ph', label: 'pH', decimals: 2, unit: '', color: '#5FA980', fill: 'rgba(95,169,128,0.14)' },
+  { key: 'fai', label: 'Índice FAI (clorofila-a)', decimals: 3, unit: '', color: '#C9765A', fill: 'rgba(201,118,90,0.14)' },
 ];
 
 export function TrendsView({ trendSeries, day, hasInSitu }) {
@@ -26,7 +26,7 @@ export function TrendsView({ trendSeries, day, hasInSitu }) {
         {charts.map((c) => (
           <div key={c.key} className="trend-card" style={{ padding: '14px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14.5, fontWeight: 600, color: '#FFFFFF', letterSpacing: -0.3 }}>{c.label}</span>
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: -0.3 }}>{c.label}</span>
               <span style={{ fontSize: 17, color: c.color }}>{sparklineNow(trendSeries, c.key, day, c.decimals, c.unit)}</span>
             </div>
             <div style={{ marginTop: 8 }}>

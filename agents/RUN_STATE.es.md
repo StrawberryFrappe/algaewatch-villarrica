@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: ad8d265c33e3162526f39283c7161afa7f2d1e7b
+source_sha: 414532090372649b81d085721182dec689560df7
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -60,6 +60,23 @@ corregir antes de poder juzgar honestamente cualquier reentrenamiento.
 - Las reglas del proyecto preexistentes se preservaron y se fusionaron en
   `AGENTS.md` como PR-1 a PR-4.
 - Dos lenguas de trabajo, GATE-I18N activo (ADR-sf-0006).
+- **El trabajo de frontend de `lq` está integrado, y llegó por `main`.** ADR 0003
+  aceptado (Leaflet se mantiene), la pasada de credibilidad de WI-009 terminada
+  con capturas — la rampa magma validada para CVD de BL-009, el overlay recortado
+  al lago de BL-010, la divulgación de obsolescencia de BL-013, el sello TRL-2 de
+  BL-019 ahora sí renderizado, y el vidrio y los halos de BL-021 recortados — más
+  un tema pastel claro con barra superior (ADR-lq-0008). Ambos commits fueron
+  directo a `main`, que `WORKFLOW.md` reserva para estado liberado integrado desde
+  `develop`; `develop` ahora los contiene por merge.
+- **Una colisión de IDs, resuelta por orden de acuñación.** Dos ítems de trabajo
+  se acuñaron como WI-011: la instalación del venv a las 00:34:51, y la pasada de
+  tema claro de `lq` a las 01:17:17 desde una base que no tenía ninguna de las
+  dos. WI-011 sigue siendo la instalación del venv; la pasada de tema es WI-013.
+  `lq` también volvió a marcar WI-010 como bloqueado en contra de EV-017 — no fue
+  un desacuerdo: no había traído la rama que lo registraba. Restaurado a
+  terminado, con su alcance ahora declarado como la máquina de `sf`. La nota
+  completa está en `WORK_ITEMS.md`; la regla de agregar al final es lo que hizo
+  visibles ambas cosas en lugar de silenciarlas.
 - **GATE-I18N estaba fallando, y lo que estaba mal era la verificación.** El
   estado de más abajo afirmaba 5 de 5 al día; la primera corrida de la sesión
   siguiente reportó uno obsoleto. `RUN_STATE.es.md` había registrado el sha de
@@ -112,7 +129,8 @@ usuario.** Cuatro instalaciones — `sentinelhub`, `cdsapi`, `rasterio`, `xarray
 convierten credenciales que funcionan en un pipeline ejecutable, lo que le da a
 BL-007 la grilla por píxel, lo que convierte 35 filas en unas 65.000 (EV-008).
 
-`lq` sigue debiendo ADR 0003 antes de que empiece el trabajo de frontend.
+La mitad de `lq` avanzó: ADR 0003 aceptado, WI-008 y WI-009 terminados, más una
+pasada de tema claro (WI-013). Integrado a `develop` al final de esta sesión.
 
 Hay un traspaso de sesión que cubre lo hecho, lo que el backlog espera a
 continuación, y cómo retomar desde `develop`, en
@@ -158,8 +176,8 @@ vuelo.
   real que llega con los CSV del SNIA. Hasta entonces, ADR-sf-0007 descalifica el
   FAI de punto de estación como señal de entrenamiento, y
   `check_station_points_on_water` lo hace cumplir.
-- **ADR 0003** (biblioteca de mapas) le corresponde a `lq` y todavía no ha
-  respondido. El trabajo de frontend no debería empezar antes de eso.
+- **ADR 0003 está resuelto** y ya no bloquea nada. Leaflet se mantiene, aceptado
+  por `lq` el 2026-09-10, y WI-008 y WI-009 están ambos terminados.
 
 ## Último Estado Verificado
 

@@ -8,8 +8,9 @@ Read `AGENTS.md` and `agents/RUN_STATE.md` first; this file assumes them.
 
 ## Current State
 
-Branch **`develop`**, pushed through `c3beadf`; later commits are local only.
-`main` is untouched at `912376c`.
+Branch **`develop`**, pushed. `main` is at `38c8dfa` — **not** untouched: `lq`
+pushed two commits directly to it during this session, and `develop` now contains
+them by merge. See the ID-collision note in `agents/planning/WORK_ITEMS.md`.
 
 ```
 f4c8f2d         docs(harness): settle WI-005's signal, record the defects that block it
@@ -18,10 +19,11 @@ c3beadf         docs(harness): add a session handoff and write down branch namin
 23b30ca         docs(harness): record WI-004, the station-provenance defect, and cleared blockers
 ```
 
-Application code is unchanged this session. `src/model/` is as WI-004 left it;
-`src/features/`, `backend/`, `frontend/`, `scripts/` and `data/` are as the
-original author left them. The only non-document change is
-`agents/check_translations.py`, which is harness tooling.
+`sf` changed no application code this session. `src/model/` is as WI-004 left it;
+`src/features/`, `backend/`, `scripts/` and `data/` are as the original author
+left them. The only non-document change of `sf`'s is
+`agents/check_translations.py`, which is harness tooling. `frontend/` moved
+substantially, but that is `lq`'s WI-009 and WI-013, arriving by merge.
 
 ## What Happened
 
@@ -96,7 +98,7 @@ Ordered by what unblocks what.
 | **BL-032** | Two non-xfailed tests hardcode the check count (7 and 6). A single-group candidate table breaks them outright, red rather than xfail | `sf` |
 | WI-011 / BL-028 | `sentinelhub`, `cdsapi`, `rasterio`, `xarray` absent; no venv. Blocks BL-007, BL-012, BL-014, and BL-008 in practice. **Highest leverage item on the board** — four installs turn 35 rows into ~65,000 | user |
 | WI-012 / BL-027 | Station coordinates, blocked on real GPS from SNIA | `sf` |
-| WI-008 | ADR 0003, the map library, unanswered. Gates the frontend pass | `lq` |
+| ~~WI-008~~ | **Cleared.** ADR 0003 accepted, Leaflet stands. WI-009's credibility pass and WI-013's light-theme pass are both done, with screenshots | `lq` |
 
 BL-033 (declare overlapping-pair non-independence — 18 of 35 dates are both a
 target and a feature anchor) and BL-034 (make MI-3 executable) are recorded but

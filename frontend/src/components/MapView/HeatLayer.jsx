@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.heat';
+import { RISK_RAMP } from '../../utils/risk';
 
 // Real heatmap: points are sampled from the actual Sentinel-2 FAI raster
 // (GET /risk/grid, ~1800 water pixels from the most recent clear pass — see
@@ -14,8 +15,13 @@ export function HeatLayer({ points }) {
     if (!points.length) return undefined;
     const heat = L.heatLayer(
       points.map((p) => [p.lat, p.lng, p.risk / 100]),
-      { radius: 22, blur: 20, maxZoom: 16, max: 1, minOpacity: 0.3,
-        gradient: { 0.0: '#64D2FF', 0.35: '#30D158', 0.6: '#FF9F0A', 1.0: '#FF453A' } }
+      // Light theme (ADR-lq-0008): ~1800 grid points stack additively, so on a
+      // light surface a normal heat config turns the whole lake into one wash.
+      // Keep the floor near zero, push `max` up so density rarely saturates, and
+      // anchor the gradient's low end at a barely-there tint — calm water then
+      // reads as the lake showing through, and only real hot clusters colour up.
+      { radius: 15, blur: 16, maxZoom: 16, max: 2.6, minOpacity: 0.04,
+        gradient: { 0.0: 'rgba(240,228,208,0.35)', 0.3: RISK_RAMP[1], 0.62: RISK_RAMP[2], 1.0: RISK_RAMP[3] } }
     );
     heat.addTo(map);
     return () => heat.remove();
