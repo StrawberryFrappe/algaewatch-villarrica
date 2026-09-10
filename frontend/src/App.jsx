@@ -10,7 +10,8 @@ export default function App() {
   const data = useAppData();
   const {
     view, setView, day, setDay, hover, setHover, pinned, setPinned, open, setOpen,
-    dates, selectedDate, stationRows, trendSeries, hasInSitu, riskGrid, risk, forecast, metrics, candidate,
+    dates, selectedDate, stationRows, trendSeries, hasInSitu, riskGrid, risk, forecast, metrics, candidate, candidateError,
+    forecastModel, setForecastModel, forecastModelError,
     lastPassDate, selectedIsProjected,
     loadError, isReady,
   } = data;
@@ -57,19 +58,25 @@ export default function App() {
             selectedDate={selectedDate}
             lastPassDate={lastPassDate}
             selectedIsProjected={selectedIsProjected}
+            forecastModel={forecastModel}
+            setForecastModel={setForecastModel}
+            candidate={candidate}
+            candidateError={candidateError}
           />
           </ErrorBoundary>
         )}
 
         {!loadError && isReady && view === 'estaciones' && (
-          <StationsView
-            stationRows={stationRows}
-            selectedDate={selectedDate}
-            hover={hover}
-            setHover={setHover}
-            lastPassDate={lastPassDate}
-            selectedIsProjected={selectedIsProjected}
-          />
+          <ErrorBoundary label="La vista Estaciones">
+            <StationsView
+              stationRows={stationRows}
+              selectedDate={selectedDate}
+              hover={hover}
+              setHover={setHover}
+              lastPassDate={lastPassDate}
+              selectedIsProjected={selectedIsProjected}
+            />
+          </ErrorBoundary>
         )}
 
         {!loadError && isReady && view === 'tendencias' && (
@@ -79,9 +86,18 @@ export default function App() {
         )}
 
         {!loadError && isReady && view === 'modelo' && (
-          <ErrorBoundary label="La vista Modelo"><ModelView metrics={metrics} candidate={candidate} /></ErrorBoundary>
+          <ErrorBoundary label="La vista Modelo">
+            <ModelView
+              metrics={metrics}
+              candidate={candidate}
+              candidateError={candidateError}
+              forecastModel={forecastModel}
+              setForecastModel={setForecastModel}
+              forecastModelError={forecastModelError}
+            />
+            <ModelFooter metrics={metrics} />
+          </ErrorBoundary>
         )}
-        {!loadError && isReady && view === 'modelo' && <ModelFooter metrics={metrics} />}
       </main>
     </div>
   );

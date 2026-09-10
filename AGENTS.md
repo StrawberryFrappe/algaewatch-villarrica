@@ -103,15 +103,28 @@ truth for layout, view structure, and interaction. Deviations from it are
 allowed but must be recorded as ADRs. One such deviation is already recorded
 (ADR 0003, map library).
 
-Two texts in that handoff are explicitly required to be preserved: the
+The handoff names two texts as required to be preserved: the
 "TRL 2 · resultados no validados en campo" seal and the AI-panel disclaimer.
 
-Current compliance is partial, verified 2026-09-09. The AI-panel disclaimer is
-hardcoded correctly in `backend/app/routers/forecast.py`. The TRL-2 seal is
-**not** rendered: `backend/app/routers/model_metrics.py` supplies it only as a
-default argument to `m.get("caveats", ...)`, and `metrics.json` always populates
-`caveats`, so the mandated Spanish text is unreachable dead code. Tracked as
-BL-019. Do not treat this rule as currently satisfied.
+**The AI-panel disclaimer requirement stands.** It is hardcoded in
+`backend/app/routers/forecast.py` and rendered in the analytics panel. Do not
+remove it.
+
+**The TRL-2 seal requirement is withdrawn**, by owner decision on 2026-09-10,
+recorded in `agents/adrs/lq-0010-remove-trl2-seal-from-ui.md`. It rendered three
+times on the Modelo view plus the header subtitle, and the owner judged the
+repetition and the tone unfit to demo. It is removed from the UI and replaced by
+one neutral line — "Prototipo de investigación. Las salidas no son alertas
+sanitarias ni operacionales." — which carries the same warning without the
+self-flagellation. The backend `caveats` strings still contain the old sentence
+and are stripped on render; the model artifacts are byte-unchanged.
+
+This is a deliberate deviation from the handoff, taken through the ADR mechanism
+this rule provides for. BL-019, which tracked getting the seal rendered, is
+closed as obsolete rather than done. The honesty obligation it served has not
+gone away: the prototype must still never present itself as an operational or
+sanitary alert system, and rule MI-1 still requires every metric to appear beside
+its baselines.
 
 ## Model Integrity Rules
 

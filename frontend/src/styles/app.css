@@ -6,7 +6,22 @@
   display: flex;
   flex-direction: column;
   color: var(--color-text);
-  background: var(--surface-page);
+  background: transparent;
+}
+
+/* Faint Lake Villarrica satellite backdrop so the gutters and gaps between
+   panels are not flat white. A near-opaque page-toned wash sits on top of the
+   image, so only ~8–12% of the photo reads through — enough for depth, not so
+   much that it competes with content. Fixed so it does not scroll. */
+.shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(165deg, rgba(240, 244, 250, 0.90), rgba(232, 238, 247, 0.94) 55%, rgba(226, 233, 246, 0.92)),
+    url('/lake-villarrica-bg.jpg') center / cover no-repeat;
 }
 
 /* Centred content column with breathing gutters that grow on wider screens. */
@@ -19,12 +34,14 @@
 @media (min-width: 768px) { .container { padding-inline: 28px; } }
 @media (min-width: 1200px) { .container { padding-inline: 44px; } }
 
-/* Plain cards — flat, soft border, shallow shadow. No blur, no glass. */
+/* Plain cards — flat, soft border, shallow shadow. No blur, no glass.
+   Very slightly translucent so the lake backdrop reads at the panel edges
+   without touching text contrast. */
 .glass-panel,
 .glass-content {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
-  background: var(--surface-panel);
+  background: rgba(255, 255, 255, 0.955);
   box-shadow: var(--shadow-panel);
 }
 .glass-content { border-radius: var(--radius-panel); }
@@ -162,6 +179,7 @@
 .time-window { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0; }
 .time-window .label { font-size: 9px; letter-spacing: 0.6px; color: var(--color-text-label); white-space: nowrap; text-transform: uppercase; }
 .time-window input[type='range'] { width: 100%; height: 16px; margin: 0; background: transparent; }
+.time-window-hint { font-size: 9px; letter-spacing: 0.2px; color: var(--color-text-dim); line-height: 1.3; }
 .selected-date {
   flex: 0 0 auto; white-space: nowrap; display: flex; flex-direction: column; gap: 2px;
   padding-left: 16px; border-left: 1px solid var(--hairline);

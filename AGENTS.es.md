@@ -1,8 +1,8 @@
 ---
 source: AGENTS.md
-source_sha: d10f6506fe451cc71e0e49212853bb7c315f1ced
+source_sha: 1dc7451f998ea69bb390f0863995024fd1aa0783
 source_sha_algo: git-blob-sha1
-translated: 2026-09-09
+translated: 2026-09-10
 translator: agent
 ---
 
@@ -115,16 +115,29 @@ frontend para layout, estructura de vistas e interacción. Las desviaciones est�
 permitidas pero deben registrarse como ADRs. Ya hay una registrada (ADR 0003,
 librería de mapas).
 
-Dos textos de ese handoff deben preservarse explícitamente: el sello
+El handoff nombra dos textos como obligatorios de preservar: el sello
 "TRL 2 · resultados no validados en campo" y el disclaimer del panel de IA.
 
-El cumplimiento actual es parcial, verificado el 2026-09-09. El disclaimer del
-panel de IA está correctamente hardcodeado en `backend/app/routers/forecast.py`.
-El sello TRL-2 **no** se renderiza: `backend/app/routers/model_metrics.py` lo
-provee sólo como argumento por defecto de `m.get("caveats", ...)`, y
-`metrics.json` siempre completa `caveats`, así que el texto en español exigido es
-código muerto inalcanzable. Registrado como BL-019. No tratar esta regla como
-satisfecha actualmente.
+**El requisito del disclaimer del panel de IA se mantiene.** Está hardcodeado en
+`backend/app/routers/forecast.py` y se renderiza en el panel analítico. No
+removerlo.
+
+**El requisito del sello TRL-2 queda retirado**, por decisión del dueño el
+2026-09-10, registrada en `agents/adrs/lq-0010-remove-trl2-seal-from-ui.md`. Se
+renderizaba tres veces en la vista Modelo más la bajada de la cabecera, y el
+dueño consideró que la repetición y el tono no servían para demostrar el
+producto. Se removió de la UI y se reemplazó por una sola línea neutra —
+"Prototipo de investigación. Las salidas no son alertas sanitarias ni
+operacionales." — que carga la misma advertencia sin la autoflagelación. Los
+strings `caveats` del backend todavía contienen la oración vieja y se recortan al
+renderizar; los artefactos del modelo quedan sin cambios byte a byte.
+
+Es una desviación deliberada del handoff, tomada por el mecanismo de ADR que esta
+misma regla contempla. BL-019, que seguía la renderización del sello, se cierra
+como obsoleto y no como hecho. La obligación de honestidad que servía no
+desaparece: el prototipo nunca debe presentarse como sistema de alerta
+operacional ni sanitario, y la regla MI-1 sigue exigiendo que toda métrica
+aparezca junto a sus líneas base.
 
 ## Reglas de Integridad del Modelo
 

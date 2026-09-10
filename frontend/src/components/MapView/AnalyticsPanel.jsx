@@ -1,4 +1,5 @@
 import { Sparkline, sparklineNow, sparklineRange } from '../Sparkline';
+import { MODELS, Segmented } from '../Segmented';
 import { formatDateEs } from '../../utils/format';
 import { riskPresentation } from '../../utils/risk';
 
@@ -19,7 +20,11 @@ function SparkFlash() {
   );
 }
 
-export function AnalyticsPanel({ open, setOpen, forecast, trendSeries, dayIndex, hasInSitu, stationRows, hover, pinned, setHover, setPinned, selectedDate }) {
+export function AnalyticsPanel({
+  open, setOpen, forecast, trendSeries, dayIndex, hasInSitu, stationRows,
+  hover, pinned, setHover, setPinned, selectedDate,
+  forecastModel, setForecastModel, candidate, candidateError,
+}) {
   const charts = hasInSitu ? CHART_DEFS : CHART_DEFS.filter((c) => c.key === 'fai');
   const firstDate = trendSeries[0]?.date;
   const lastDate = trendSeries[trendSeries.length - 1]?.date;
@@ -41,13 +46,49 @@ export function AnalyticsPanel({ open, setOpen, forecast, trendSeries, dayIndex,
         <button className="collapse-btn" onClick={() => setOpen(false)}>COLAPSAR ›</button>
       </div>
 
+      {/* The model switch lives here as well as in the Modelo view: this is the
+          screen where its effect is visible, and a demo should not have to leave
+          the map to change the model. Both drive the same app-level state. */}
+      <div className="model-switch-row">
+        <span className="model-switch-label">MODELO DEL PRONÓSTICO</span>
+        <Segmented
+          value={forecastModel}
+          onChange={setForecastModel}
+          options={MODELS}
+          size="sm"
+          disabledReason={{
+            candidate: candidate
+              ? ''
+              : (candidateError
+                ? 'No se pudo cargar el candidato (ver consola del navegador).'
+                : 'El candidato per-píxel no se ha entrenado en este checkout.'),
+          }}
+        />
+      </div>
+
       <div className="ai-panel">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10, flexWrap: 'wrap' }}>
           <SparkFlash />
           <span style={{ fontSize: 10, letterSpacing: 0.7, color: 'var(--color-accent-ink)', fontWeight: 600 }}>ANÁLISIS IA</span>
           <span style={{ marginLeft: 'auto', fontSize: 9.5, color: 'var(--color-text-label)' }}>
             {forecast ? `CONFIANZA ${forecast.confidence_pct}%` : '—'}
           </span>
+          {/* Which model produced this projection. Only shown for the candidate:
+              the legacy path is the default and needs no badge. */}
+          {forecast?.model_used === 'candidate' && (
+            <span
+              style={{
+                flexBasis: '100%',
+                fontSize: 9,
+                letterSpacing: 0.5,
+                color: 'var(--color-accent-ink)',
+                fontWeight: 600,
+              }}
+            >
+              MODELO CANDIDATO · PER-PÍXEL + ERA5
+              {forecast.target_date ? ` · PROYECCIÓN AL ${formatDateEs(forecast.target_date).toUpperCase()}` : ''}
+            </span>
+          )}
         </div>
         <p style={{ margin: '0 0 10px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--color-text)' }}>
           {forecast?.summary ?? 'Calculando proyección…'}

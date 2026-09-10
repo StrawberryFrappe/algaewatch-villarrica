@@ -1,12 +1,25 @@
 import { formatDateEs, numEs } from '../utils/format';
+import { MODELS, Segmented } from './Segmented';
 
-// Mandated maturity seal (design handoff §"Datos", §"VALIDACIÓN"). PR-4 requires
-// this exact text to be preserved and visible. It is fixed UI chrome, not run
-// data — kept here as a literal, the same way the AI-panel disclaimer lives in
-// backend/app/routers/forecast.py. `metrics.disclaimer` carries the extra,
-// run-specific caveats (BL-019: the seal and the caveats are different texts and
-// both belong).
-const TRL_SEAL = 'TRL 2 · resultados no validados en campo';
+// Research-prototype notice. Replaces the former "TRL 2 · resultados no validados
+// en campo" seal, removed from the UI per ADR-lq-0010 (the user found the seal
+// unprofessional and over-self-aware). This keeps the one point that still
+// matters to a viewer: the output is not an operational alert.
+const PROTOTYPE_NOTE =
+  'Prototipo de investigación. Las salidas no son alertas sanitarias ni operacionales.';
+
+// The backend `caveats` strings still open with the old seal sentence
+// ("TRL 2 — no validado en campo."). Strip just that clause on render so the
+// substantive caveats (sample size, MI-1, spatial autocorrelation) survive.
+// The model artifacts themselves are left byte-unchanged.
+//
+// Tolerates the separator variants actually seen in the artifacts and the design
+// handoff (em dash, en dash, hyphen, middot) and a clause that runs to the end of
+// the string with no trailing period.
+function stripSeal(text) {
+  if (!text) return text;
+  return text.replace(/\s*TRL\s*2\s*[—–·-]\s*[^.]*(?:\.|$)\s*/i, ' ').trim();
+}
 
 // Muted confusion-matrix accents for the light theme (ADR-lq-0008). Not the risk
 // ramp — these label matrix cells. Paired with the text label, never colour alone.
@@ -17,11 +30,88 @@ const CM_ROWS = [
   { key: 'true_negatives', label: 'Verdaderos negativos', tone: '#43589A' },
 ];
 
+// The legacy Gradient Boosting model — the one that actually drives /risk and
+// /forecast. Rendered when the Modelo switch is on "Producción".
+function LegacyModelCards({ metrics }) {
+  const cm = metrics.confusion_matrix;
+  const persistence = metrics.baselines?.persistence;
+  const trivial = metrics.baselines?.trivial_rule;
+  const verdict = metrics.beats_baselines ?? {};
 
-// The per-pixel candidate. Rendered as a clearly separate block, never merged
-// into the production model's cards: it is evaluated but does not drive /risk or
-// /forecast, and the payload's `serving: false` is what says so. Showing them as
-// one model would imply the map runs on this, which it does not.
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 16 }}>
+      <div className="model-card">
+        <div className="model-card-eyebrow">MATRIZ DE CONFUSIÓN · UMBRAL FAI ≥ {numEs(metrics.fai_alert_threshold, 4)}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 11 }}>
+          {CM_ROWS.map((r) => (
+            <div key={r.key} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--color-text-tertiary-2)' }}>{r.label}</span>
+              <span style={{ fontSize: 16, color: r.tone }}>{cm[r.key].toLocaleString('es-CL')}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="model-card">
+        <div className="model-card-eyebrow">IMPORTANCIA DE VARIABLES</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 11 }}>
+          {metrics.feature_importance.map((v) => (
+            <div key={v.feature}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, color: 'var(--color-text-secondary)' }}>
+                <span>{v.feature}</span><span style={{ color: 'var(--color-text-tertiary-2)' }}>{v.importance_pct}%</span>
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: 'var(--progress-track)', marginTop: 5, overflow: 'hidden' }}>
+                <div style={{ height: 5, borderRadius: 999, width: `${v.importance_pct}%`, background: 'var(--color-accent)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="model-card">
+        <div className="model-card-eyebrow">VALIDACIÓN</div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 10 }}>
+          {metrics.validation.n_observations.toLocaleString('es-CL')} observaciones · {metrics.validation.period}<br />
+          {metrics.validation.method}<br />
+          Reentrenado el {formatDateEs(metrics.validation.retrained_at)}<br />
+          Horizonte de predicción: {metrics.validation.horizon_days} días
+        </div>
+        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 10 }}>
+          La validación es temporal: se entrena con las fechas más antiguas y se
+          evalúa con las siguientes, sin mezclarlas, para medir predicción y no
+          memoria.
+        </div>
+        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 8 }}>
+          {stripSeal(metrics.disclaimer)}
+        </div>
+      </div>
+
+      <div className="model-card">
+        <div className="model-card-eyebrow">COMPARACIÓN CON BASELINES</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 11, fontSize: 12.5 }}>
+          <div>
+            <div style={{ color: 'var(--color-text-secondary)' }}>MAE del modelo: {numEs(metrics.metrics.mae_fai, 5)}</div>
+            <div style={{ color: 'var(--color-text-dim)' }}>
+              Persistencia: {numEs(persistence?.mae_fai, 5)} · {verdict.persistence ? 'superada' : 'no superada'}
+            </div>
+          </div>
+          <div>
+            <div style={{ color: 'var(--color-text-secondary)' }}>F1 del modelo: {numEs(metrics.metrics.f1_score, 4)}</div>
+            <div style={{ color: 'var(--color-text-dim)' }}>
+              Regla trivial: {numEs(trivial?.f1_score, 4)} · {verdict.trivial_rule ? 'superada' : 'no superada'}
+            </div>
+          </div>
+          <div style={{ color: 'var(--color-text-dim)', lineHeight: 1.45 }}>
+            Una métrica solo es evidencia cuando aparece junto a una referencia calculada sobre las mismas filas.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The per-pixel candidate. Evaluated but not deployed: /risk and /forecast still
+// run the legacy artifacts. Rendered when the Modelo switch is on "Candidato".
 function CandidatePanel({ candidate }) {
   if (!candidate) return null;
 
@@ -32,7 +122,7 @@ function CandidatePanel({ candidate }) {
   const foldsBeating = c.folds.filter((f) => f.mae_fai < f.climatology_mae_fai).length;
 
   return (
-    <section style={{ marginTop: 26, paddingTop: 20, borderTop: '1px solid var(--hairline)' }}>
+    <section style={{ marginTop: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <div className="view-eyebrow" style={{ margin: 0 }}>CANDIDATO · {c.version}</div>
         <span
@@ -111,6 +201,11 @@ function CandidatePanel({ candidate }) {
 
       <div className="model-card" style={{ marginTop: 12 }}>
         <div className="model-card-eyebrow">VALIDACIÓN POR FOLD · {c.cv_scheme}</div>
+        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 8 }}>
+          Cada fold entrena hasta una fecha y evalúa la ventana siguiente (ventana
+          expansiva), con un embargo del horizonte de pronóstico entre ambas y un
+          bloque 2×2 del lago dejado afuera.
+        </div>
         <div style={{ overflowX: 'auto', marginTop: 11 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
@@ -145,15 +240,17 @@ function CandidatePanel({ candidate }) {
           </table>
         </div>
         <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 11 }}>
-          <strong style={{ color: 'var(--color-text-tertiary-2)', fontWeight: 600 }}>{TRL_SEAL}.</strong>{' '}
-          {c.disclaimer}
+          {stripSeal(c.disclaimer)}
         </div>
       </div>
     </section>
   );
 }
 
-export function ModelView({ metrics, candidate }) {
+export function ModelView({
+  metrics, candidate, candidateError,
+  forecastModel, setForecastModel, forecastModelError,
+}) {
   if (!metrics) {
     return (
       <div className="view-panel glass-content">
@@ -163,85 +260,51 @@ export function ModelView({ metrics, candidate }) {
     );
   }
 
-  const cm = metrics.confusion_matrix;
-  const persistence = metrics.baselines?.persistence;
-  const trivial = metrics.baselines?.trivial_rule;
-  const verdict = metrics.beats_baselines ?? {};
+  let candidateDisabled = '';
+  if (!candidate) {
+    candidateDisabled = candidateError
+      ? 'No se pudo cargar el candidato (ver consola del navegador).'
+      : 'El candidato per-píxel no se ha entrenado en este checkout.';
+  }
+  const showing = forecastModel === 'candidate' && candidate ? 'candidate' : 'legacy';
 
   return (
     <div className="view-panel glass-content">
-      <div className="view-eyebrow">MODELO PREDICTIVO · {metrics.version}</div>
-      <div className="view-title">Gradient Boosting + índice FAI Sentinel-2</div>
-      <div className="trl-seal" role="note">
-        <span className="trl-seal-dot" aria-hidden="true" />
-        {TRL_SEAL}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 16 }}>
-        <div className="model-card">
-          <div className="model-card-eyebrow">MATRIZ DE CONFUSIÓN · UMBRAL FAI ≥ {numEs(metrics.fai_alert_threshold, 4)}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 11 }}>
-            {CM_ROWS.map((r) => (
-              <div key={r.key} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--color-text-tertiary-2)' }}>{r.label}</span>
-                <span style={{ fontSize: 16, color: r.tone }}>{cm[r.key].toLocaleString('es-CL')}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="view-eyebrow">MODELO PREDICTIVO</div>
+      <div className="view-title">Dos modelos, ninguno listo para producción</div>
+      <p className="model-lede">
+        El modelo de <strong>producción</strong> (Gradient Boosting + FAI) no supera
+        a sus líneas base y lee coordenadas de estación que caen fuera del agua. El{' '}
+        <strong>candidato</strong> per-píxel + ERA5-Land es la iteración pensada para
+        reemplazarlo: entrenado sobre datos reales sin relleno, tampoco las supera
+        en promedio, pero gana en los folds más volátiles y declara su
+        incertidumbre de forma calibrada.
+      </p>
+      <p className="model-lede" style={{ marginTop: 8 }}>
+        Este selector <strong>cambia el modelo que produce el pronóstico</strong> del
+        panel analítico, no solo las métricas de abajo. El mapa (riesgo actual y
+        grilla FAI) es una lectura directa del satélite y no depende de ningún
+        modelo.
+      </p>
 
-        <div className="model-card">
-          <div className="model-card-eyebrow">IMPORTANCIA DE VARIABLES</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 11 }}>
-            {metrics.feature_importance.map((v) => (
-              <div key={v.feature}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, color: 'var(--color-text-secondary)' }}>
-                  <span>{v.feature}</span><span style={{ color: 'var(--color-text-tertiary-2)' }}>{v.importance_pct}%</span>
-                </div>
-                <div style={{ height: 5, borderRadius: 999, background: 'var(--progress-track)', marginTop: 5, overflow: 'hidden' }}>
-                  <div style={{ height: 5, borderRadius: 999, width: `${v.importance_pct}%`, background: 'var(--color-accent)' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <Segmented
+        value={forecastModel}
+        onChange={setForecastModel}
+        options={MODELS}
+        disabledReason={{ candidate: candidateDisabled }}
+      />
 
-        <div className="model-card">
-          <div className="model-card-eyebrow">VALIDACIÓN</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 10 }}>
-            {metrics.validation.n_observations.toLocaleString('es-CL')} observaciones · {metrics.validation.period}<br />
-            {metrics.validation.method}<br />
-            Reentrenado el {formatDateEs(metrics.validation.retrained_at)}<br />
-            Horizonte de predicción: {metrics.validation.horizon_days} días
-          </div>
-          <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 10 }}>
-            <strong style={{ color: 'var(--color-text-tertiary-2)', fontWeight: 600 }}>{TRL_SEAL}.</strong>{' '}
-            {metrics.disclaimer}
-          </div>
-        </div>
+      {forecastModelError && (
+        <p className="model-note" style={{ marginTop: 10, color: 'var(--status-stale)' }}>
+          {forecastModelError}
+        </p>
+      )}
 
-        <div className="model-card">
-          <div className="model-card-eyebrow">COMPARACIÓN CON BASELINES</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 11, fontSize: 12.5 }}>
-            <div>
-              <div style={{ color: 'var(--color-text-secondary)' }}>MAE del modelo: {numEs(metrics.metrics.mae_fai, 5)}</div>
-              <div style={{ color: 'var(--color-text-dim)' }}>
-                Persistencia: {numEs(persistence?.mae_fai, 5)} · {verdict.persistence ? 'superada' : 'no superada'}
-              </div>
-            </div>
-            <div>
-              <div style={{ color: 'var(--color-text-secondary)' }}>F1 del modelo: {numEs(metrics.metrics.f1_score, 4)}</div>
-              <div style={{ color: 'var(--color-text-dim)' }}>
-                Regla trivial: {numEs(trivial?.f1_score, 4)} · {verdict.trivial_rule ? 'superada' : 'no superada'}
-              </div>
-            </div>
-            <div style={{ color: 'var(--color-text-dim)', lineHeight: 1.45 }}>
-              Una métrica solo es evidencia cuando aparece junto a una referencia calculada sobre las mismas filas.
-            </div>
-          </div>
-        </div>
-      </div>
+      {showing === 'legacy'
+        ? <LegacyModelCards metrics={metrics} />
+        : <CandidatePanel candidate={candidate} />}
 
-      <CandidatePanel candidate={candidate} />
+      <p className="model-note">{PROTOTYPE_NOTE}</p>
     </div>
   );
 }
@@ -264,7 +327,7 @@ export function ModelFooter({ metrics }) {
   return (
     <footer className="footer glass-panel">
       <div style={{ flex: '0 0 auto', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontSize: 9.5, letterSpacing: 0.6, color: 'var(--color-text-label)' }}>MODELO PREDICTIVO</span>
+        <span style={{ fontSize: 9.5, letterSpacing: 0.6, color: 'var(--color-text-label)' }}>MODELO EN PRODUCCIÓN</span>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-text)' }}>Gradient Boosting + FAI</span>
         <span style={{ fontSize: 9.5, color: 'var(--color-text-dim)' }}>{metrics.version} · reentrenado {formatDateEs(metrics.validation.retrained_at)}</span>
       </div>
@@ -284,7 +347,7 @@ export function ModelFooter({ metrics }) {
 
       <div style={{ flex: '0 0 auto', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'right', paddingLeft: 14, borderLeft: '1px solid var(--hairline)' }}>
         <span style={{ fontSize: 9.5, letterSpacing: 0.6, color: 'var(--color-text-label)' }}>VALIDACIÓN</span>
-        <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{metrics.validation.n_observations.toLocaleString('es-CL')} obs · CV 5-fold</span>
+        <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{metrics.validation.n_observations.toLocaleString('es-CL')} obs · CV temporal</span>
         <span style={{ fontSize: 9.5, color: 'var(--color-text-dim)' }}>Umbral de alerta: FAI ≥ {numEs(metrics.fai_alert_threshold, 4)}</span>
       </div>
     </footer>

@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 7a44e3bbc876104d98750bcd6d38846f8c3a4a23
+source_sha: 7ff9450df6250fb57f16dabfda41b5566c3e8e00
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -9,6 +9,25 @@ translator: agent
 # Estado de Ejecución
 
 ## Fase Actual
+
+**Hay una pasada de preparación para la demo sin commitear en el árbol de trabajo
+de `demoday` (2026-09-10).** Hace dos cosas. Primero, una pasada de pulido del
+frontend: la rampa de riesgo ahora va de azul (bajo) a verde (alto) por pedido
+del dueño, la capa de calor y los marcadores de estación se reajustaron para ser
+legibles sobre la imagen satelital, la vista Modelo se rehízo alrededor de un
+selector de modelo, el sello TRL-2 se removió de la UI (ADR-lq-0010, una
+desviación consciente de PR-4), un fondo satelital tenue del Lago Villarrica
+reemplazó al blanco plano, y `ErrorBoundary` ahora cubre todas las vistas.
+Segundo, y el punto de la demo: **el candidato per-píxel efectivamente alimenta
+`/forecast`** detrás de un selector `model=legacy|candidate` (ADR-lq-0011), vía
+una tabla de predicción commiteada que escribe el nuevo
+`scripts/predict_per_pixel_forecast.py`. El mapa (`/risk`, `/risk/grid`) queda
+deliberadamente intacto y sigue sin depender de modelos. Tests: 100 pasados /
+8 xfailed; GATE-MODEL sin cambios con 9 pasados / 8 xfailed. Revisado
+independientemente en dos pasadas (frontend: 0 bugs; Fase 5: sin hallazgos).
+**Sin commitear, sin mergear.**
+
+## Fase Anterior
 
 **El reentrenamiento per-píxel está construido, entrenado y medido (2026-09-10,
 ADR-sf-0010), en la rama `feat/per-pixel-retrain-verdict` — todavía sin mergear
@@ -284,6 +303,34 @@ vuelo.
   por `lq` el 2026-09-10, y WI-008 y WI-009 están ambos terminados.
 
 ## Último Estado Verificado
+
+### 2026-09-10, árbol de trabajo `demoday` (pasada de demo, SIN COMMITEAR)
+
+El entorno se reconstruyó otra vez desde cero en esta sesión — no existían
+`.venv`, ni `frontend/node_modules`, ni **`agents/local/CAPABILITIES.md`** en
+este checkout, así que GATE-LOCAL se volvió a limpiar con un escaneo fresco.
+Python 3.14.7, Node v26.8.1, `pip install -r requirements.txt` limpio.
+
+- `python -m pytest -q` — **100 pasados, 8 xfailed** (eran 93/8 antes de esta
+  pasada; +7 por el nuevo `tests/test_candidate_forecast.py`).
+- `python -m pytest -q tests/test_model_integrity.py` — **9 pasados, 8 xfailed**,
+  sin cambios. No se tocó código de entrenamiento, `src/features/` ni el
+  constructor del dataset, así que GATE-MODEL no se ve afectado por esta pasada.
+- `npm --prefix frontend run build` — limpio, 2,9 s.
+- `python scripts/predict_per_pixel_forecast.py` — ancla 2026-08-17 → objetivo
+  2026-08-22 (5 d), 4 estaciones con 25 px cada una más una fila `lake` sobre
+  1.852 px, escrito en `data/processed/per_pixel_forecast_latest.csv`.
+- Ambos modelos verificados en vivo por HTTP en la misma fecha: el legacy reporta
+  pucón 81 / sur 69 (ALTO); el candidato reporta todas las estaciones en 4–5
+  (MUY_BAJO) con 76–89% de confianza de intervalo. La divergencia es el argumento
+  de la demo — los ALTO del legacy vienen de coordenadas de estación fuera del
+  agua (BL-027).
+- Dos revisiones independientes por subagente: el diff de frontend volvió con
+  **0 bugs, 1 riesgo, 1 nit**, ambos aplicados (regex de `stripSeal` endurecida,
+  `aria-disabled` agregado); el diff de la Fase 5 volvió **sin hallazgos**.
+- **Sin commitear** al momento de escribir esto. Se agregaron los ADR lq-0010 y
+  lq-0011, y `AGENTS.md` / `GATES.md` se enmendaron para reflejar el retiro del
+  sello TRL-2.
 
 ### 2026-09-10, `feat/per-pixel-retrain-verdict` (reentrenamiento per-píxel)
 

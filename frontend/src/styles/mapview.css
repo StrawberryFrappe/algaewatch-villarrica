@@ -30,10 +30,10 @@
   background: #dfe7ee;
   font-family: var(--font-family);
 }
-/* Esri imagery is quite dark/saturated; nudge it toward the light UI without
-   washing it out. */
+/* Esri imagery is quite dark/saturated; desaturate slightly so the risk marks
+   and heat field read on top, without washing the base out. */
 .leaflet-tile-pane {
-  filter: brightness(1.06) saturate(0.9) contrast(0.98);
+  filter: brightness(1.0) saturate(0.82) contrast(0.98);
 }
 .leaflet-control-attribution {
   background: rgba(255, 255, 255, 0.82) !important;
@@ -143,6 +143,22 @@
   cursor: pointer;
 }
 .collapse-btn:hover { background: var(--surface-segmented-track); color: var(--color-text-primary); }
+
+/* Model switch above the AI panel — same app state as the Modelo view's switch */
+.model-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 14px 0;
+  padding-bottom: 2px;
+}
+.model-switch-label {
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  color: var(--color-text-label);
+  text-transform: uppercase;
+}
 
 /* AI panel — plain tinted card, brand accent edge */
 .ai-panel {

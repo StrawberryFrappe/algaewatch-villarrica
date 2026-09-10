@@ -38,7 +38,13 @@ export function useAppData() {
   const [forecast, setForecast] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [candidate, setCandidate] = useState(null);
+  const [candidateError, setCandidateError] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  // Which model produces the projection shown in the analytics panel. Driven by
+  // the switch in the Modelo view, so flipping it there changes the live
+  // forecast, not just the metrics on screen.
+  const [forecastModel, setForecastModel] = useState('legacy');
+  const [forecastModelError, setForecastModelError] = useState(null);
 
   // Initial load: station catalog, full observation window, model metrics,
   // and the real FAI grid (one satellite-pass snapshot, not date-dependent).
@@ -59,28 +65,48 @@ export function useAppData() {
     return () => { cancelled = true; };
   }, []);
 
-  // The per-pixel candidate is fetched on its own and its failure is swallowed
-  // on purpose. It is an optional, non-serving model: a checkout that has not
-  // trained it must still render the dashboard, so a 404 here must not reach
-  // setLoadError and blank the whole app.
+  // The per-pixel candidate is optional and non-serving: a checkout that has not
+  // trained it must still render the dashboard, so its failure never reaches
+  // setLoadError. api.getModelCandidate resolves a 404 to null (nothing to
+  // show); a non-404 error is a real fault — still non-fatal here, but recorded
+  // in candidateError and logged rather than silently swallowed.
   useEffect(() => {
     let cancelled = false;
     api.getModelCandidate()
-      .then((c) => !cancelled && setCandidate(c))
-      .catch(() => !cancelled && setCandidate(null));
+      .then((c) => { if (!cancelled) { setCandidate(c); setCandidateError(null); } })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn('[candidate] fetch failed, panel hidden:', err.message);
+        setCandidate(null);
+        setCandidateError(err.message);
+      });
     return () => { cancelled = true; };
   }, []);
 
   const selectedDate = dates[day] ?? null;
 
-  // Per-date fetches: current risk (present state) and 7-day forecast (model output).
+  // Per-date fetches: current risk (present state) and the forecast (model
+  // output). The forecast also re-runs when the model switch changes.
   useEffect(() => {
     if (!selectedDate) return;
     let cancelled = false;
     api.getRisk(selectedDate).then((r) => !cancelled && setRisk(r)).catch((err) => !cancelled && setLoadError(err.message));
-    api.getForecast(selectedDate).then((f) => !cancelled && setForecast(f)).catch((err) => !cancelled && setLoadError(err.message));
+    api.getForecast(selectedDate, forecastModel)
+      .then((f) => {
+        if (cancelled) return;
+        if (f === null) {
+          // Candidate forecast not available in this checkout: fall back rather
+          // than leaving the panel on a stale projection from the other model.
+          setForecastModelError('El pronóstico del candidato no está disponible en este checkout.');
+          setForecastModel('legacy');
+          return;
+        }
+        setForecast(f);
+        setForecastModelError(null);
+      })
+      .catch((err) => !cancelled && setLoadError(err.message));
     return () => { cancelled = true; };
-  }, [selectedDate]);
+  }, [selectedDate, forecastModel]);
 
   const observationByStationDate = useMemo(() => {
     const map = new Map();
@@ -130,6 +156,10 @@ export function useAppData() {
     hasInSitu,
     risk,
     candidate,
+    candidateError,
+    forecastModel,
+    setForecastModel,
+    forecastModelError,
     riskGrid,
     forecast,
     metrics,

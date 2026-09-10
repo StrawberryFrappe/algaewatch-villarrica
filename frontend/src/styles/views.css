@@ -12,29 +12,58 @@
   background: var(--surface-card);
 }
 
-/* Mandated TRL-2 maturity seal (BL-019 / PR-4). Reads as a stamp on the whole
-   Modelo view, not a caption buried in a card. */
-.trl-seal {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 5px 12px;
-  border: 1px solid #E4C9A6;
-  border-radius: var(--radius-pill);
-  background: #FBF3E6;
+/* Modelo view — narrative lede above the model switch, and the neutral
+   research-prototype note below it (the former TRL-2 seal was removed from the
+   UI per ADR-lq-0010). */
+.model-lede {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  max-width: 72ch;
+}
+.model-note {
+  margin: 20px 0 0;
   font-size: 11px;
+  letter-spacing: 0.2px;
+  color: var(--color-text-dim);
+}
+
+/* Segmented model switch (Producción / Candidato). */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 2px;
+  border-radius: var(--radius-pill-seg);
+  background: var(--surface-segmented-track);
+  border: 1px solid var(--hairline);
+}
+.seg-btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  transition: background 150ms ease, color 150ms ease;
+}
+.seg-btn[aria-selected='true'] {
+  color: var(--color-text-primary);
+  background: var(--surface-segmented-active);
   font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: #8A5A2B;
+  box-shadow: var(--shadow-pill);
 }
-.trl-seal-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #C98A3C;
-}
+.seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Compact variant, for the map's analytics panel. */
+.seg--sm { margin-top: 0; }
+.seg--sm .seg-btn { padding: 4px 10px; font-size: 11px; }
+
 .model-card-eyebrow {
   font-size: 9.5px;
   letter-spacing: 0.6px;

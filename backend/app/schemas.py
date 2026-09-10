@@ -89,6 +89,13 @@ class ForecastResponse(BaseModel):
     ai_generated: bool  # True when summary/recommendation came from Gemini, False when from the template fallback
     disclaimer: str
     source: Literal["mock", "model"]
+    # Which model produced this projection. "legacy" is the Gradient Boosting
+    # artifact that also drives /risk; "candidate" is the per-pixel quantile
+    # network, which is date-independent and therefore carries its own anchor and
+    # target dates (null on the legacy path, where `date` already says it).
+    model_used: Literal["legacy", "candidate"] = "legacy"
+    anchor_date: str | None = None
+    target_date: str | None = None
 
 
 class ConfusionMatrix(BaseModel):

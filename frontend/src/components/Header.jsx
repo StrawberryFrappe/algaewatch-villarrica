@@ -48,7 +48,7 @@ export function Header({ view, setView, dates, day, setDay, overlayUpdatedAt, se
           <BrandLogo />
           <div className="brand-text">
             <div className="brand-title">AlgaeWatch <span>Villarrica</span></div>
-            <div className="brand-sub">Monitoreo y predicción de floraciones · TRL 2</div>
+            <div className="brand-sub">Monitoreo y predicción de floraciones de algas</div>
           </div>
         </div>
 
@@ -78,7 +78,7 @@ export function Header({ view, setView, dates, day, setDay, overlayUpdatedAt, se
 
       <div className="container header-tools">
         <div className="time-window">
-          <span className="label">Ventana temporal</span>
+          <span className="label">Línea de tiempo</span>
           <input
             type="range"
             min={0}
@@ -86,8 +86,12 @@ export function Header({ view, setView, dates, day, setDay, overlayUpdatedAt, se
             step={1}
             value={day}
             onChange={(e) => setDay(Number(e.target.value))}
+            aria-label="Línea de tiempo: recorrer el historial y la proyección a 7 días"
             style={{ '--range-pct': `${(day / Math.max(1, dates.length - 1)) * 100}%` }}
           />
+          <span className="time-window-hint">
+            Desliza para recorrer el historial y entrar en la proyección a 7 días.
+          </span>
         </div>
         <div className="selected-date">
           <span className="label">

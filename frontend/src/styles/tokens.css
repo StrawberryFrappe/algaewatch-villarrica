@@ -19,15 +19,16 @@
   --color-accent-light: #8AA0DA;
   --color-accent-ink: #43589A;      /* for text/links needing 4.5:1 on white */
 
-  /* Risk scale — reserved exclusively for risk. Light-mode pastel sequential
-     ramp (peach → dusty terracotta), monotonic OKLCH lightness, colourblind-safe
-     under protan/deutan/tritan (worst adjacent ΔE 8.5). See utils/risk.js and
-     ADR-lq-0008. */
-  --risk-muy-bajo: #EAC49B;
-  --risk-bajo: #E0A074;
-  --risk-medio: #C9765A;
-  --risk-alto: #A05445;
-  --risk-alto-ink: #8A463B;          /* darker step for small text on white */
+  /* Risk scale — reserved exclusively for risk. Blue (low) → green (high)
+     sequential ramp with lightness rising monotonically with risk, so the order
+     survives loss of hue discrimination and stays off the red/green confusion
+     axis. See utils/risk.js (user request 2026-09-10; supersedes the
+     peach→terracotta ramp of ADR-lq-0008). */
+  --risk-muy-bajo: #2E7BB0;
+  --risk-bajo: #1C9BA0;
+  --risk-medio: #23A96F;
+  --risk-alto: #52C244;
+  --risk-alto-ink: #3C8F33;          /* darker step for small text on white */
 
   /* Liveness indicator — its own tokens, pastel green / amber */
   --status-live: #5FA980;

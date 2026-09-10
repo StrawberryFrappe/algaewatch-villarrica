@@ -64,16 +64,34 @@ present but embarrassing to show:
 
 This project additionally fails GATE-PQ if:
 
-- the risk scale remains the 4-stop qualitative palette in
-  `frontend/src/utils/risk.js` (blue, green, orange, red), which is not
-  perceptually uniform and whose green/orange/red stops are the confusable set
-  for the commonest colour vision deficiencies (BL-009);
+- the risk scale in `frontend/src/utils/risk.js` is not perceptually ordered —
+  originally this named the 4-stop qualitative palette (blue, green, orange,
+  red) whose green/orange/red stops are the confusable set for the commonest
+  colour vision deficiencies (BL-009). The criterion is the *mechanism*, not the
+  hues: an ordered risk ramp must carry its order in lightness, so it survives
+  loss of hue discrimination.
+
+  Current state, 2026-09-10: the ramp is blue → teal → green with lightness
+  rising monotonically toward high risk (owner request; supersedes the
+  peach→terracotta magma ramp of ADR-lq-0008). It satisfies the lightness
+  mechanism and stays off the red/green axis, but **two caveats are open and
+  should be settled before this gate is called passed**: it was hand-picked and
+  has *not* been re-validated with the dataviz `validate_palette` tool the magma
+  ramp was checked against; and high risk is the *bright green* end, which
+  inverts the near-universal "green means safe" reading and may be misjudged by
+  a demo audience;
 - the risk overlay is painted over land rather than clipped to the lake
   surface (BL-010);
 - the interface presents a forward-filled value as a current reading without
   disclosing how old the underlying satellite pass is (BL-013);
 - any displayed metric appears without the baseline it is being compared
   against (rule MI-1).
+
+The "TRL 2 · resultados no validados en campo" seal is **no longer required** in
+the UI — withdrawn by owner decision 2026-09-10, ADR-lq-0010, which amends PR-4.
+A neutral research-prototype note replaces it. The AI-panel disclaimer is
+unaffected and still mandatory. Absence of the seal is not a GATE-PQ failure;
+presenting model output as an operational alert still is.
 
 ## GATE-MODEL Model Integrity
 

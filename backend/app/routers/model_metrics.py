@@ -42,7 +42,10 @@ def model_metrics() -> ModelMetricsResponse:
         validation=Validation(
             n_observations=m["n_observations"],
             period=period,
-            method="Validación cruzada 5-fold + hold-out temporal",
+            method=(
+                "Validación temporal: se entrena con las fechas más antiguas y se "
+                "evalúa con las siguientes, sin mezclarlas (ventana expansiva)."
+            ),
             horizon_days=7,
             retrained_at=m["retrained_at"],
         ),

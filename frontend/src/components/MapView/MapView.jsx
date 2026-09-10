@@ -1,12 +1,13 @@
 import { LeafletMap } from './LeafletMap';
 import { AnalyticsPanel } from './AnalyticsPanel';
-import { RISK_RAMP, RISK_LEVELS } from '../../utils/risk';
+import { RISK_PIN_RAMP, RISK_LEVELS } from '../../utils/risk';
 import { passAgeLabel, projectionGapDays } from '../../utils/staleness';
 
 export function MapView({
   stationRows, hover, pinned, setHover, setPinned,
   open, setOpen, forecast, trendSeries, hasInSitu, riskGrid, day, selectedDate,
   lastPassDate, selectedIsProjected,
+  forecastModel, setForecastModel, candidate, candidateError,
 }) {
   const gap = projectionGapDays(lastPassDate, selectedDate);
   return (
@@ -38,11 +39,11 @@ export function MapView({
         <div className="legend-card">
           <span style={{ fontSize: 9, letterSpacing: 0.6, color: 'var(--color-text-label)', textTransform: 'uppercase' }}>Índice de riesgo de floración</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 190, height: 8, borderRadius: 999, background: `linear-gradient(90deg,${RISK_RAMP.join(',')})` }} />
+            <div style={{ width: 190, height: 8, borderRadius: 999, background: `linear-gradient(90deg,${RISK_PIN_RAMP.join(',')})` }} />
             <span style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>0 → 100</span>
           </div>
           <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--color-text-tertiary)' }}>
-            <span>Muy bajo</span><span>Bajo</span><span>Medio</span><span style={{ color: RISK_LEVELS.ALTO.hex, fontWeight: 600 }}>Alto</span>
+            <span>Muy bajo</span><span>Bajo</span><span>Medio</span><span style={{ color: RISK_LEVELS.ALTO.pin, fontWeight: 600 }}>Alto</span>
           </div>
         </div>
       </section>
@@ -60,6 +61,10 @@ export function MapView({
         setHover={setHover}
         setPinned={setPinned}
         selectedDate={selectedDate}
+        forecastModel={forecastModel}
+        setForecastModel={setForecastModel}
+        candidate={candidate}
+        candidateError={candidateError}
       />
     </div>
   );

@@ -2,6 +2,23 @@
 
 ## Current Phase
 
+**A demo-prep pass is uncommitted in the working tree on `demoday` (2026-09-10).**
+It does two things. First, a frontend polish pass: the risk ramp is now blue (low)
+→ green (high) at the owner's request, the heat layer and station markers were
+retuned to be legible over satellite imagery, the Modelo view was rebuilt around a
+model switch, the TRL-2 seal was removed from the UI (ADR-lq-0010, a knowing PR-4
+deviation), a faint Lake Villarrica satellite backdrop replaced the flat white, and
+`ErrorBoundary` now covers every view. Second, and the point of the demo: **the
+per-pixel candidate actually serves `/forecast`** behind a `model=legacy|candidate`
+switch (ADR-lq-0011), via a committed prediction table written by the new
+`scripts/predict_per_pixel_forecast.py`. The map (`/risk`, `/risk/grid`) is
+deliberately untouched and still model-free. Tests 100 passed / 8 xfailed;
+GATE-MODEL unchanged at 9 passed / 8 xfailed. Independently reviewed in two passes
+(frontend: 0 bugs; Phase 5 review in flight at time of writing). **Not committed,
+not merged.**
+
+## Earlier Phase
+
 **The per-pixel retrain is built, trained and measured (2026-09-10, ADR-sf-0010),
 on branch `feat/per-pixel-retrain-verdict` — not yet merged and NOT yet
 independently reviewed.** It is the first model in this repository trained on
@@ -244,6 +261,32 @@ Kept current so another contributor can pick this up mid-flight.
   by `lq` on 2026-09-10, and WI-008 and WI-009 are both done.
 
 ## Last Verified State
+
+### 2026-09-10, `demoday` working tree (demo-prep pass, UNCOMMITTED)
+
+Environment rebuilt again from scratch this session — no `.venv`, no
+`frontend/node_modules`, and **no `agents/local/CAPABILITIES.md`** existed in this
+checkout, so GATE-LOCAL was re-cleared with a fresh scan. Python 3.14.7,
+Node v26.8.1, `pip install -r requirements.txt` clean.
+
+- `python -m pytest -q` — **100 passed, 8 xfailed** (was 93/8 before this pass;
+  +7 from the new `tests/test_candidate_forecast.py`).
+- `python -m pytest -q tests/test_model_integrity.py` — **9 passed, 8 xfailed**,
+  unchanged. No training code, `src/features/`, or dataset-builder code was
+  touched, so GATE-MODEL is unaffected by this pass.
+- `npm --prefix frontend run build` — clean, 2.9 s.
+- `python scripts/predict_per_pixel_forecast.py` — anchor 2026-08-17 → target
+  2026-08-22 (5 d), 4 stations at 25 px each + a `lake` row over 1,852 px, written
+  to `data/processed/per_pixel_forecast_latest.csv`.
+- Both models verified live over HTTP at the same date: legacy reports
+  pucón 81 / sur 69 (ALTO); candidate reports every station 4–5 (MUY_BAJO) with
+  76–89% interval confidence. The divergence is the demo's argument — the legacy
+  ALTOs come from off-water station coordinates (BL-027).
+- Two independent subagent reviews: the frontend diff came back **0 bugs, 1 risk,
+  1 nit**, both applied (`stripSeal` regex hardened, `aria-disabled` added).
+- **Not committed.** ADRs lq-0010 and lq-0011 added. `AGENTS.md` PR-4 and
+  `GATES.md` still describe the TRL-2 seal as mandated and now disagree with the
+  UI — the owner needs to decide whether to amend them or revert the seal.
 
 ### 2026-09-10, `feat/per-pixel-retrain-verdict` (per-pixel retrain)
 

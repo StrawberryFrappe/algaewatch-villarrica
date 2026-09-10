@@ -30,9 +30,10 @@ function pulseIcon(hex) {
 
 function StationMarker({ station, hover, pinned, onEnter, onLeave, onClick, lastPassDate, projectionGap }) {
   const markerRef = useRef(null);
-  const { hex } = riskPresentation(station.level);
+  const { pin } = riskPresentation(station.level);
   const isActive = hover === station.id || pinned === station.id;
   const isAlto = station.level === 'ALTO';
+  const r = isActive ? 13 : 11;
 
   useEffect(() => {
     const marker = markerRef.current;
@@ -43,12 +44,19 @@ function StationMarker({ station, hover, pinned, onEnter, onLeave, onClick, last
 
   return (
     <>
-      {isAlto && <Marker position={[station.lat, station.lng]} icon={pulseIcon(hex)} interactive={false} />}
+      {isAlto && <Marker position={[station.lat, station.lng]} icon={pulseIcon(pin)} interactive={false} />}
+      {/* Dark halo under the dot so it stays readable over satellite imagery. */}
+      <CircleMarker
+        center={[station.lat, station.lng]}
+        radius={r + 2.5}
+        pathOptions={{ stroke: false, fillColor: '#141F33', fillOpacity: 0.55 }}
+        interactive={false}
+      />
       <CircleMarker
         ref={markerRef}
         center={[station.lat, station.lng]}
-        radius={isActive ? 11 : 9}
-        pathOptions={{ color: '#FFFFFF', weight: 2.5, fillColor: hex, fillOpacity: 1 }}
+        radius={r}
+        pathOptions={{ color: '#FFFFFF', weight: 2.5, fillColor: pin, fillOpacity: 1 }}
         eventHandlers={{
           mouseover: () => onEnter(station.id),
           mouseout: onLeave,
@@ -89,7 +97,7 @@ export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave
       <TileLayer
         url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
         attribution="Esri World Boundaries and Places"
-        opacity={0.85}
+        opacity={0.55}
         maxZoom={19}
       />
       <ScaleControl position="bottomright" imperial={false} />
