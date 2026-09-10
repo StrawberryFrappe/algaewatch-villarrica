@@ -21,23 +21,50 @@ import { RISK_LEVELS } from '../../utils/risk';
 const LAT_STEP = 0.00289;
 const LNG_STEP = 0.00342;
 
-// Risk 0-100 -> ramp colour. Matches the backend's risk_level() cutoffs so the
-// raster, the markers and the legend all speak the same scale.
+const RAMP = [
+  RISK_LEVELS.MUY_BAJO.pin,
+  RISK_LEVELS.BAJO.pin,
+  RISK_LEVELS.MEDIO.pin,
+  RISK_LEVELS.ALTO.pin,
+];
+
+// `fai_to_risk` is a sigmoid centred on the alert threshold, so on a typical
+// pass almost every water pixel lands within a point or two of the same low
+// value. Mapping that straight onto the ramp paints a flat, dead wash and
+// throws away real variation the sensor did measure.
+//
+// GAMMA < 1 stretches the low end of the scale across more of the ramp, so
+// neighbouring pixels at risk 4 and 7 become distinguishable. It is a *display*
+// transform only: it changes nothing about the underlying value, the legend
+// still shows the true 0-100 scale, and the ordering is preserved exactly, so a
+// hotter cell can never render cooler than a calmer one.
+const GAMMA = 0.6;
+
+function lerpChannel(a, b, t) {
+  return Math.round(a + (b - a) * t);
+}
+
+function lerpHex(from, to, t) {
+  const a = [1, 3, 5].map((i) => parseInt(from.slice(i, i + 2), 16));
+  const b = [1, 3, 5].map((i) => parseInt(to.slice(i, i + 2), 16));
+  const c = a.map((v, i) => lerpChannel(v, b[i], t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+// Continuous colour across the ramp rather than four hard bands.
 function cellColor(risk) {
-  if (risk < 25) return RISK_LEVELS.MUY_BAJO.pin;
-  if (risk < 45) return RISK_LEVELS.BAJO.pin;
-  if (risk < 68) return RISK_LEVELS.MEDIO.pin;
-  return RISK_LEVELS.ALTO.pin;
+  const clamped = Math.min(1, Math.max(0, risk / 100));
+  const t = Math.pow(clamped, GAMMA) * (RAMP.length - 1);
+  const i = Math.min(RAMP.length - 2, Math.floor(t));
+  return lerpHex(RAMP[i], RAMP[i + 1], t - i);
 }
 
 // Low risk is the overwhelming majority of any pass, so painting it at full
 // strength would hide the lake under a flat wash. Opacity rises with risk: calm
 // water stays a tint you can see the water through, hot cells read solid.
 function cellOpacity(risk) {
-  if (risk < 25) return 0.28;
-  if (risk < 45) return 0.5;
-  if (risk < 68) return 0.68;
-  return 0.82;
+  const clamped = Math.min(1, Math.max(0, risk / 100));
+  return 0.3 + 0.55 * Math.pow(clamped, GAMMA);
 }
 
 export function RiskGridLayer({ points }) {
