@@ -94,11 +94,12 @@ reemplaza, lo complementa con el avance real.
 
 ## 2. Lo que NO alcanzó a hacerse (aquí se cortó)
 
-1. **Backfill ERA5 no corrido.** No existe `data/processed/era5_daily.csv`.
-   Requiere **aceptar la licencia de ERA5-Land una vez, a mano**, en la web de
-   CDS (HTTP 403 hasta entonces — ver el docstring de `src/features/era5.py`).
-   `.env.example` ya apunta a la página de licencia de `reanalysis-era5-land`.
-   Luego: `.venv/bin/python scripts/collect_era5.py`.
+1. **Backfill ERA5 no terminado.** No existe `data/processed/era5_daily.csv`
+   todavía. La **licencia CC-BY de ERA5-Land ya está aceptada** (2026-09-10) y
+   `scripts/collect_era5.py` corre bien: alcanzó a bajar los meses
+   `2025-09/10/11` a `data/raw/era5/` antes de que se cortara. El script es
+   **reanudable** (checkpoint por mes), así que volver a correrlo retoma donde
+   quedó. Faltan ~9 meses de la cola de CDS.
 2. **Tabla per-píxel no construida.** `scripts/build_per_pixel_dataset.py`
    necesita `era5_daily.csv` primero → produce
    `data/processed/per_pixel_anomaly_dataset.csv`.
@@ -135,22 +136,111 @@ reemplaza, lo complementa con el avance real.
 
 ---
 
-## 4. Próximos pasos, en orden
+## 4. Cómo terminarlo — runbook para Jun
 
-1. Aceptar la licencia de ERA5-Land en CDS → `scripts/collect_era5.py`.
-2. `scripts/build_per_pixel_dataset.py` → `scripts/train_per_pixel.py`; leer el
-   veredicto (¿bate climatología?).
-3. Correr el gate del candidato. Recalibrar el umbral o dejar la clasificación
-   en `null` + razón.
-4. Escribir ADR + logbook + `EVIDENCE_INDEX.md` + `RUN_STATE.md` (+ `.es`,
-   re-hashear `source_sha`).
-5. Revisión independiente (subagente), luego merge a `main`.
+Todo desde la raíz del repo, con la rama `wip/per-pixel-retrain` checkouteada.
+Cada paso deja un archivo o un veredicto; no saltarse el orden.
+
+### Paso 0 — arrancar limpio
+```bash
+git checkout wip/per-pixel-retrain
+git pull
+.venv/bin/python -m pytest -q          # baseline: 78 passed, 8 xfailed
+```
+Si `pytest` no está verde acá, **parar** y arreglar eso primero.
+
+### Paso 1 — backfill ERA5 (`data/processed/era5_daily.csv`)
+```bash
+.venv/bin/python scripts/collect_era5.py
+```
+- Reanudable: los meses ya bajados (`2025-09/10/11`) se saltan; retoma la cola.
+- Tarda: es la cola async de CDS (`accepted → running → successful`), varios
+  minutos por mes, ~9 meses pendientes. Dejalo correr; si se corta, volvé a
+  lanzarlo.
+- **No lo corras dos veces en paralelo** — corrompe el checkpoint (fue lo que
+  pasó en esta sesión).
+- Éxito = imprime `Saved 56 rows to data/processed/era5_daily.csv`. Si algún mes
+  falla se niega a escribir tabla parcial: revisá el error de ese mes y reintentá.
+
+### Paso 2 — construir la tabla per-píxel
+```bash
+.venv/bin/python scripts/build_per_pixel_dataset.py
+```
+- Entra `fai_grid_series.csv` (ya está, 98.886 filas) + `era5_daily.csv` (paso 1).
+- Sale `data/processed/per_pixel_anomaly_dataset.csv`.
+- Imprime cuántos pares honestos, píxeles y anclas, y el tamaño de cada bloque
+  espacial. **Chequear**: que los 4 bloques 2×2 tengan píxeles suficientes; si
+  alguno queda casi vacío, el hold-out espacial del paso 3 no sirve (BL-016) —
+  ajustar `add_spatial_blocks` en `src/features/per_pixel_dataset.py`.
+
+### Paso 3 — entrenar y evaluar
+```bash
+.venv/bin/python scripts/train_per_pixel.py
+```
+- Sale `src/model/artifacts/per_pixel/{quantile_mlp.pt,metrics.json}`.
+- Imprime `MAE ± std | persistence | climatology | Beats baselines: {...}`.
+- **El veredicto es el entregable.** Climatología (~0.00078) es la barra que
+  manda (ADR-sf-0008 D2). Que gane → es la victoria: documentar diseño del split
+  y conteos. Que no → se reporta honesto (el fallback de ADR 0004 es aceptable
+  *declarado*, no tomado en silencio). Un número bajo y honesto **pasa**
+  GATE-MODEL; uno alto de un pipeline con fuga **falla**. No tunear hacia el número.
+
+### Paso 4 — gate del candidato
+```bash
+ALGAEWATCH_DATASET=per_pixel_anomaly_dataset.csv \
+ALGAEWATCH_METRICS=src/model/artifacts/per_pixel/metrics.json \
+.venv/bin/python -m pytest -q tests/test_model_integrity.py
+```
+- El condicionamiento `ON_CANDIDATE` ya maneja una tabla multi-grupo.
+- Con ≥2 grupos espaciales, `trivial_rule` y
+  `check_label_not_stratified_by_station` vuelven solos a su forma de grupo
+  (BL-030/BL-031).
+
+### Paso 5 — superficie de clasificación
+El umbral `0.025916` es ~10× el máximo per-píxel real (EV-020). O se recalibra
+sobre la distribución real de la tabla per-píxel, o se reporta la clasificación
+como `null` + la razón en `metrics.json`. **Nunca** hornear el umbral en las
+labels de entrenamiento (MI-3).
+
+### Paso 6 — verificación completa
+```bash
+.venv/bin/python -m pytest -q
+.venv/bin/python agents/harness_doctor.py --root . --strict      # espera 0/0
+.venv/bin/python agents/check_translations.py                    # espera 0 problems
+```
+
+### Paso 7 — documentar (Definición de Hecho §8–§9)
+- ADR nuevo `agents/adrs/sf-00NN-...md` (o `lq-`/tu slug) con las decisiones de
+  modelado y comandos de reproducción.
+- Entrada de logbook `agents/local/logbook/20260910/<slug>.md`.
+- `agents/validation/EVIDENCE_INDEX.md`: nuevos EV con el comando exacto que
+  reproduce cada figura citada.
+- `agents/RUN_STATE.md` + `agents/RUN_STATE.es.md`: actualizar estado y próxima
+  acción; re-hashear el `source_sha` del `.es` (ver `agents/check_translations.py`).
+
+### Paso 8 — revisión independiente antes de merge
+Precedente WI-004 / WI-005 (`agents/reviews/reviews_index.md`): lanzar un
+subagente de revisión de implementación sobre el diff completo de la rama,
+registrar el veredicto en `agents/reviews/20260910/` y en `reviews_index.md`,
+aplicar los hallazgos.
+
+### Paso 9 — merge a `main`
+```bash
+git checkout main
+git merge --no-ff wip/per-pixel-retrain
+git push origin main
+```
+(El workflow retiró `develop`; el trabajo aterriza en `main` vía merge commit.)
 
 ---
 
 ## 5. Dónde está este avance
 
-Volcado a la rama WIP **`wip/per-pixel-retrain`** y pusheado a `origin`. No está
-en `main`: es trabajo en progreso sin revisar (la Definición de Hecho pide
-revisión independiente antes del merge). Los tests, el harness doctor y las
-traducciones están verdes en ese estado.
+Todo commiteado en la rama **`wip/per-pixel-retrain`** y pusheado a `origin`. El
+working tree está limpio. **No está en `main`** a propósito: es WIP sin revisar
+(la Definición de Hecho pide revisión independiente antes del merge). En este
+estado, `pytest` (78/8xfail), `harness_doctor --strict` (0/0) y
+`check_translations` (0) están verdes.
+
+Los `.nc`/`.zip` crudos de ERA5 en `data/raw/era5/` **no** se versionan
+(`.gitignore`), solo la tabla compacta `era5_daily.csv` cuando exista.
