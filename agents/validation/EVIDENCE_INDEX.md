@@ -22,6 +22,7 @@ All run from the repository root and require no credentials.
 | EV-015 | 2026-09-10 | The CDSE token endpoint returns HTTP 200 with an `access_token` for the credentials in `.env` | Copernicus Data Space access is available. The WI-002 credential blocker recorded in `RUN_STATE.md` was stale | `.env`, one directory above the repository root |
 | EV-016 | 2026-09-10 | `python -m pytest -q` reports 36 passed, 7 xfailed | The baseline and integrity checks are permanent and re-runnable, satisfying BL-002. The seven xfails are the GATE-MODEL checks the legacy dataset does not pass; they are `strict`, so a fix reports XPASS as a failure | `tests/` |
 | EV-017 | 2026-09-10 | `torch 2.14.0+cu126`, `torch.cuda.is_available()` true, GeForce GTX 1650 (sm_75, 4.3 GB), GPU matmul executed | PyTorch is installed with working CUDA, clearing WI-010 / BL-024 on the owner's machine | Local environment; recorded in `agents/local/CAPABILITIES.md` |
+| EV-018 | 2026-09-10 | `agents/RUN_STATE.es.md` recorded `source_sha` `28592ee…`, which is the blob sha of `agents/RUN_STATE.md` with **CRLF** line endings; the LF sha, and the committed blob, is `ef31b0a…`. `git cat-file -t 28592ee…` fails — it names no object in the repository. The Spanish text itself is a complete and current translation of that source: the section structure matches 1:1 and the paragraph added in `c3beadf` is present | GATE-I18N failed on a translation that was not stale. `--no-filters` hashes the bytes on disk, so the recorded hash depends on how the file was written, not on the commit — the previous session's working copy was CRLF, every checkout since is LF under `.gitattributes`. `check_translations.py` now normalizes line endings before hashing, and the protocol says so. The gate was fixed before the hash was re-recorded, per the rule in `GATES.md` | `agents/check_translations.py`, `agents/i18n/TRANSLATION_PROTOCOL.md`, `.gitattributes` |
 
 ## Reproduction
 
@@ -167,6 +168,19 @@ EV-017 — PyTorch and CUDA:
 
 ```bash
 python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+EV-018 — the CRLF hash. Shows that the sha the translation recorded is the same
+file's, with the other line endings, and that it is no object in the repository:
+
+```bash
+python -c "
+import hashlib
+d = open('agents/RUN_STATE.md','rb').read().replace(b'\r\n', b'\n')
+for name, b in (('LF', d), ('CRLF', d.replace(b'\n', b'\r\n'))):
+    print(name, hashlib.sha1(b'blob %d\x00' % len(b) + b).hexdigest())
+"
+git cat-file -t 28592eefe840875435c8b510b447d3c0b299b3c6   # fatal: could not get object info
 ```
 
 ### Figure drift recorded 2026-09-10

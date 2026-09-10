@@ -64,6 +64,29 @@ The general lesson stands and is worth restating: **do not write a state claim
 into a harness document at the same moment you intend to make it true.** Write it
 after the check passes, or write what you actually observed.
 
+### A Third Instance, With A Twist — 2026-09-10
+
+`RUN_STATE.md` and `SESSION_HANDOFF.sf.md` both recorded
+`python agents/check_translations.py` as "5 of 5 current". On the first run of the
+next session it reported one stale file. Same class of defect on the surface, and
+the same lesson: the claim was written in the session that produced the state, and
+was true of that session's working tree only.
+
+The twist is that the claim was true when written and *the artifact it named was
+correct too*. What was wrong was the check. `check_translations.py` hashed the
+bytes on disk, and the previous session's working copy of `agents/RUN_STATE.md`
+had CRLF line endings, so the hash it recorded described that copy rather than the
+commit. Every checkout since gets LF under `.gitattributes` and disagrees. The
+translation itself was complete and current. EV-018, and the reasoning now sits in
+`agents/i18n/TRANSLATION_PROTOCOL.md`.
+
+Worth separating from the first two instances, because the remedy is different. A
+state claim that outran reality is fixed by writing claims after checks. A check
+that answers differently in two trees of the same commit is fixed by fixing the
+check — and until it is, "the gate passed here" is not transferable evidence. The
+doctor is not implicated: it ships no i18n check, which is why this one is a
+project script.
+
 ## Manual Blocker Review
 
 The script checks structure. The blocker list above is judgement, and was

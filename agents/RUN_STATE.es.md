@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 28592eefe840875435c8b510b447d3c0b299b3c6
+source_sha: ef31b0a30f2564973312421ef8b040c2e32478d6
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent

@@ -74,22 +74,33 @@ It needs no tooling the project does not already have. **`--no-filters` is not
 optional.** Without it, git applies whatever line-ending conversion the local
 `core.autocrlf` is set to, so two contributors can hash the same unchanged file and
 get two different answers — the protocol would then report drift that does not exist,
-which is worse than reporting none at all. Harness markdown is frequently CRLF, and a
-project that has not pinned line endings in `.gitattributes` cannot assume its
-contributors are configured alike. `--no-filters` hashes the bytes on disk rather
-than a version of them that depends on local configuration.
+which is worse than reporting none at all. `--no-filters` hashes the bytes on disk
+rather than a version of them that depends on local configuration.
 
 Checking is the same command run against the current canonical file, compared to the
 value in the translation's frontmatter. A mismatch is a fact, not a verdict — it says
 the source changed, and nothing about whether the change mattered.
 
-**The limit of this, stated plainly:** hashing bytes on disk is deterministic given
-the same bytes on disk, which is not the same as being platform-independent. A
-project whose contributors check out different line endings — some CRLF, some LF —
-will see mismatches on files nobody edited. If that describes the project, pin the
-line endings in `.gitattributes` (`*.md text eol=lf` is the usual answer) so every
-working tree agrees, and the hash becomes stable everywhere. Do that once, at the
-mount, rather than discovering it from a false alarm later.
+**The limit of this, stated plainly, and it bit this project on 2026-09-10:**
+hashing bytes on disk is deterministic given the same bytes on disk, which is not
+the same as being deterministic given the same *commit*. The bytes depend on how a
+file was written, not only on how it was checked out. Pinning
+`agents/**/*.md text eol=lf` in `.gitattributes` fixes what a fresh checkout puts on
+disk; it does nothing about an editor or a shell heredoc that writes CRLF into the
+working tree during the session that records the hash. That file hashes one way for
+the session that wrote it and another way for every checkout afterwards, in the same
+commit. `agents/RUN_STATE.es.md` recorded the CRLF hash of a source it had in fact
+translated correctly, and the gate failed on the next machine to check that source
+out — a false alarm of exactly the kind `--no-filters` was chosen to prevent, coming
+in through the other door. EV-018.
+
+**So the hash this protocol means is the blob sha of the source's LF-normalized
+bytes.** On a freshly checked-out tree that is what the command above prints, so the
+hand recipe stands and is still the one to use when recording a hash by hand.
+`agents/check_translations.py` folds CRLF to LF before hashing rather than shelling
+out, which makes the check agree with the command on a clean tree and stop
+disagreeing with itself on a dirty one. Pin the line endings anyway — it keeps
+checkouts honest — but do not expect the pin alone to carry the gate.
 
 ## Translate On Touch
 
