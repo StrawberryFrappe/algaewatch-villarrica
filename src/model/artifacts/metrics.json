@@ -15,9 +15,9 @@
   "n_train": 1085,
   "n_holdout": 271,
   "cv_auc_scores": [
-    0.9880417191152671,
+    0.9890757058083078,
     0.9932116525804712,
-    0.9928969609782413,
+    0.9929868728645928,
     0.9926721812623629,
     0.9943541102077688
   ],
@@ -28,18 +28,53 @@
     "true_negatives": 175
   },
   "feature_importance": {
-    "fai_now": 0.059775082100087126,
-    "fai_lag_1d": 0.2477368032577603,
-    "fai_lag_3d": 0.5524573816983097,
-    "fai_lag_7d": 0.14003073294384286
+    "fai_now": 0.059752513011155056,
+    "fai_lag_1d": 0.24787278614894165,
+    "fai_lag_3d": 0.5522405923357903,
+    "fai_lag_7d": 0.1401341085041131
   },
   "metrics": {
     "precision": 0.8367,
     "recall": 0.4659,
     "f1_score": 0.5985,
     "auc_roc": 0.9003,
-    "mae_fai": 0.00865
+    "mae_fai": 0.00867
   },
-  "retrained_at": "2026-09-04",
-  "caveats": "Smoke-scale real-data run: FAI-only features (ERA5 pending CDS licence acceptance; in-situ pending SNIA CSVs). Sample size and feature set are not yet sufficient for production-grade metrics. TRL 2 \u2014 not validated in the field."
+  "baselines": {
+    "split": {
+      "embargo_days": 0,
+      "last_train_date": "2026-06-09",
+      "first_holdout_date": "2026-06-09",
+      "gap_days": 0,
+      "n_train": 1085,
+      "n_holdout": 271,
+      "n_embargoed": 0
+    },
+    "persistence": {
+      "available": true,
+      "rule": "fai_future == fai_now",
+      "mae_fai": 0.00603
+    },
+    "trivial_rule": {
+      "available": true,
+      "rule": "station_id == 'sur'",
+      "chosen_group": "sur",
+      "train_positive_rates": {
+        "norte": 0.0,
+        "pucon": 0.5424,
+        "sur": 0.9816,
+        "tolten": 0.0
+      },
+      "precision": 0.9701,
+      "recall": 0.7386,
+      "f1_score": 0.8387,
+      "auc_roc": 0.961
+    }
+  },
+  "beats_baselines": {
+    "persistence": false,
+    "trivial_rule": false
+  },
+  "retrained_at": "2026-09-10",
+  "caveats": "Smoke-scale real-data run: FAI-only features (ERA5 pending CDS licence acceptance; in-situ pending SNIA CSVs). Sample size and feature set are not yet sufficient for production-grade metrics. TRL 2 \u2014 not validated in the field. These figures do not beat their baselines: see 'baselines' and 'beats_baselines' in this file (rule MI-1)."
 }

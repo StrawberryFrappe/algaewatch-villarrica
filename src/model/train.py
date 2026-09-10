@@ -30,6 +30,9 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold
 
+from .baselines import beats_baselines, chronological_split
+from .baselines import compute as compute_baselines
+
 ARTIFACTS_DIR = Path(__file__).resolve().parent / "artifacts"
 
 FEATURE_CANDIDATES = [
@@ -107,6 +110,23 @@ def train(df: pd.DataFrame, bloom_threshold: float, holdout_frac: float = 0.2, n
 
     importances = dict(zip(features, classifier.feature_importances_.tolist()))
 
+    # Rule MI-1: no metric ships without the baselines it is compared against.
+    # The split is rebuilt with embargo_days=0 so it reproduces the partition
+    # this function actually used above — the baselines must be scored on the
+    # same holdout as the model, not on a better one. That missing embargo is
+    # itself a defect (MI-2, EV-005) and is recorded in the split summary rather
+    # than quietly corrected here; fixing it is BL-006.
+    model_scores = {
+        "precision": None if np.isnan(precision) else round(float(precision), 4),
+        "recall": None if np.isnan(recall) else round(float(recall), 4),
+        "f1_score": None if np.isnan(f1) else round(float(f1), 4),
+        "auc_roc": None if np.isnan(auc) else round(float(auc), 4),
+        "mae_fai": None if np.isnan(mae_fai) else round(float(mae_fai), 5),
+    }
+    split = chronological_split(df, holdout_frac=holdout_frac, embargo_days=0)
+    baselines = compute_baselines(split)
+    verdict = beats_baselines(model_scores, baselines)
+
     metrics = {
         "version": "v0.1.0-real-smoke",
         "fai_alert_threshold": bloom_threshold,
@@ -121,19 +141,16 @@ def train(df: pd.DataFrame, bloom_threshold: float, holdout_frac: float = 0.2, n
             "false_negatives": int(fn), "true_negatives": int(tn),
         },
         "feature_importance": importances,
-        "metrics": {
-            "precision": None if np.isnan(precision) else round(float(precision), 4),
-            "recall": None if np.isnan(recall) else round(float(recall), 4),
-            "f1_score": None if np.isnan(f1) else round(float(f1), 4),
-            "auc_roc": None if np.isnan(auc) else round(float(auc), 4),
-            "mae_fai": None if np.isnan(mae_fai) else round(float(mae_fai), 5),
-        },
+        "metrics": model_scores,
+        "baselines": baselines,
+        "beats_baselines": verdict,
         "retrained_at": date.today().isoformat(),
         "caveats": (
             "Smoke-scale real-data run: FAI-only features (ERA5 pending CDS licence "
             "acceptance; in-situ pending SNIA CSVs). Sample size and feature set are "
             "not yet sufficient for production-grade metrics. TRL 2 — not validated "
-            "in the field."
+            "in the field. These figures do not beat their baselines: see "
+            "'baselines' and 'beats_baselines' in this file (rule MI-1)."
         ),
     }
     return {"classifier": classifier, "regressor": regressor, "metrics": metrics}
