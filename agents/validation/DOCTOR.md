@@ -30,6 +30,9 @@ Doctor is a harness coherence check, not a product runtime.
 | 2026-09-09 | pass | 0 | 0 | Structural pass, but see the note below: the script did not catch the P0 the independent review found |
 | 2026-09-09 | pass | 0 | 0 | After resolving all eleven review findings. Present the mounted harness for user acceptance |
 | 2026-09-09 | pass | 0 | 0 | Kernel `5dee2cf`, run as `python agents/harness_doctor.py --root . --strict --kernel <clone>`. After resolving all eight upgrade-review findings. `agents/check_translations.py` also passes, 5 of 5 current. Present the upgraded harness for user acceptance |
+| 2026-09-10 | **fail** | 1 | 0 | First run of the WI-004 session, in a fresh worktree. `BLOCKER [local-mount]: agents/local/CAPABILITIES.md is missing`. The previous `RUN_STATE.md` asserted that file existed and had cleared GATE-LOCAL; it did not exist in either the worktree or the main checkout. See the note below |
+| 2026-09-10 | pass | 0 | 0 | After writing a fresh `agents/local/CAPABILITIES.md` for this machine. Proceeded to WI-004 |
+| 2026-09-10 | pass | 0 | 0 | After WI-004 landed: new modules, tests, ADR-sf-0007, evidence rows EV-014 to EV-017, backlog and work-item updates. `agents/check_translations.py` also passes, 5 of 5 current. Next: WI-005 |
 
 ### Script Limitation Observed
 
@@ -42,6 +45,47 @@ satisfied that vacuously.
 A green doctor run is a structural check, not a truth check. It does not verify
 that a document's claims match reality, and it must not be treated as evidence
 that they do.
+
+### The Same Failure, Again — 2026-09-10
+
+`RUN_STATE.md` stated: "Local half mounted. `agents/local/CAPABILITIES.md` exists
+and is gitignored, clearing GATE-LOCAL." The file did not exist, in the worktree
+or in the main checkout, and the first `--strict` run of the next session
+reported it as a hard blocker.
+
+This is the second instance of the same class of defect the mount review caught:
+a harness document asserting a state that was never verified. Note the
+difference in who caught it. The first time it took an independent reviewer;
+this time the doctor caught it directly, because kernel `5dee2cf` added the
+local-mount check. A gate whose evidence is the artifact itself is worth more
+than a gate whose evidence is a sentence.
+
+The general lesson stands and is worth restating: **do not write a state claim
+into a harness document at the same moment you intend to make it true.** Write it
+after the check passes, or write what you actually observed.
+
+### A Third Instance, With A Twist — 2026-09-10
+
+`RUN_STATE.md` and `SESSION_HANDOFF.sf.md` both recorded
+`python agents/check_translations.py` as "5 of 5 current". On the first run of the
+next session it reported one stale file. Same class of defect on the surface, and
+the same lesson: the claim was written in the session that produced the state, and
+was true of that session's working tree only.
+
+The twist is that the claim was true when written and *the artifact it named was
+correct too*. What was wrong was the check. `check_translations.py` hashed the
+bytes on disk, and the previous session's working copy of `agents/RUN_STATE.md`
+had CRLF line endings, so the hash it recorded described that copy rather than the
+commit. Every checkout since gets LF under `.gitattributes` and disagrees. The
+translation itself was complete and current. EV-018, and the reasoning now sits in
+`agents/i18n/TRANSLATION_PROTOCOL.md`.
+
+Worth separating from the first two instances, because the remedy is different. A
+state claim that outran reality is fixed by writing claims after checks. A check
+that answers differently in two trees of the same commit is fixed by fixing the
+check — and until it is, "the gate passed here" is not transferable evidence. The
+doctor is not implicated: it ships no i18n check, which is why this one is a
+project script.
 
 ## Manual Blocker Review
 

@@ -25,8 +25,8 @@ a commit or a CI step.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -50,20 +50,29 @@ SKIP_DIRS = {".git", "node_modules", "__pycache__", "data", "dist", "build"}
 
 
 def blob_sha(path: Path) -> str:
-    """Hash a file the way the protocol specifies.
+    """Hash a file the way the protocol specifies: the git blob sha of its
+    LF-normalized bytes.
 
-    `--no-filters` is load-bearing. Without it git applies whatever line-ending
-    conversion the local `core.autocrlf` happens to be set to, so two
-    contributors hashing the same unchanged file get different answers, and the
-    gate reports drift that does not exist.
+    That is the sha `git hash-object --no-filters` prints for a file checked out
+    under this repository's `.gitattributes`, which pins `agents/**/*.md` and
+    `AGENTS.md` to `eol=lf`. The hand recipe in
+    `agents/i18n/TRANSLATION_PROTOCOL.md` therefore still agrees with this
+    function on any freshly checked-out tree, and recording a hash needs no
+    tooling the project does not already have.
+
+    Normalizing is what `--no-filters` alone could not give us. `--no-filters`
+    hashes the bytes on disk, so the answer depends on how a file was *written*
+    rather than on what it says: an editor or a shell heredoc that emits CRLF
+    leaves a working copy hashing differently from the identical file in a fresh
+    checkout of the same commit. Not hypothetical -- `agents/RUN_STATE.es.md`
+    recorded the CRLF hash of a source it had translated correctly, and GATE-I18N
+    failed on the next machine to check that source out. Folding CRLF to LF
+    before hashing reports drift when the text moved and stays quiet when only
+    the line endings did.
     """
-    result = subprocess.run(
-        ["git", "hash-object", "--no-filters", str(path)],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout.strip()
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    header = ("blob %d" % len(data)).encode("ascii") + b"\x00"
+    return hashlib.sha1(header + data).hexdigest()
 
 
 def parse_frontmatter(text: str) -> dict[str, str] | None:

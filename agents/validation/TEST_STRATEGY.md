@@ -2,15 +2,46 @@
 
 ## Current Test Surface
 
-None. The repository has no tests, no test runner configuration, and no CI.
-This is the starting position, not the target.
+A pytest suite under `tests/`, added 2026-09-10 as BL-002. Configuration is
+`pytest.ini` at the repository root; there is still no CI.
 
-The 2026-09-09 audit was performed with ad-hoc scripts. Their findings are
-recorded in `EVIDENCE_INDEX.md` with reproduction commands, but ad-hoc analysis
-is not a regression guard: nothing currently prevents the same leakage from being
-reintroduced. Converting those checks into permanent tests is BL-002, and it is
-sequenced before the retrain so the new model is measured against them from its
-first run.
+```bash
+python -m pytest -q          # 36 passed, 7 xfailed  (EV-016)
+```
+
+Four files, each with a distinct job:
+
+| File | What it holds | State |
+|---|---|---|
+| `test_evidence_index.py` | EV-001 to EV-011 pinned to their recorded values | passing |
+| `test_baselines.py` | Unit tests for the splitter, persistence and the trivial rule | passing |
+| `test_station_provenance.py` | The station-coordinate measurements behind EV-014 | passing |
+| `test_model_integrity.py` | GATE-MODEL — the seven checks a shipped model must pass | 7 xfail(strict) |
+
+The passing files pin **defects**, not quality. Their job is to stop the numbers
+drifting unnoticed, which is what happened to the two figures that carried no
+reproduction command before the mount review.
+
+`test_model_integrity.py` is the gate, and every check in it currently fails, so
+every one is marked `xfail(strict=True)`. The strictness is load-bearing: when
+WI-005 makes a check pass, pytest reports XPASS as a **failure**, so the mark has
+to be removed in the same change and the gate cannot be declared satisfied while
+the marks remain. A test that asserted today's broken numbers instead would go
+green and stay green straight through the fix.
+
+Point the gate at a candidate table without editing anything:
+
+```bash
+ALGAEWATCH_DATASET=data/processed/candidate.csv python -m pytest tests/test_model_integrity.py
+```
+
+The checks live in `src/model/integrity.py` and the baselines they call in
+`src/model/baselines.py`, so the retrain path and the test suite run the same
+code rather than two implementations that can drift apart.
+
+The 2026-09-09 audit was performed with ad-hoc scripts. Those findings remain in
+`EVIDENCE_INDEX.md` with reproduction commands; what changed is that they are no
+longer only commands somebody might run.
 
 ## Required Test Types
 
@@ -46,7 +77,14 @@ defects the audit actually found.
 6. **No present-reading shortcut.** Assert that thresholding the current value
    does not reproduce the label. At present it does so on 90% of rows (EV-009).
 
-Checks 3 through 6 are the ones that would have caught the audited defects before
+7. **Station points on water.** Assert that each declared station coordinate sits
+   within 0.35 km of a water pixel, and that its reading falls inside the
+   distribution of the scene it was drawn from. Two of four currently fail on
+   both counts (EV-014, ADR-sf-0007). Added 2026-09-10; it is the only check
+   here that examines where the numbers came from rather than what was done with
+   them, and it is upstream of checks 1, 2 and 5.
+
+Checks 3 through 7 are the ones that would have caught the audited defects before
 they reached a metrics file.
 
 ## Rule

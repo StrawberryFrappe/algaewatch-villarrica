@@ -47,6 +47,31 @@ Related: never use bare `git stash` or `git stash pop` when more than one tree
 shares a repository. The stash stack is shared, and another session may be using
 it. Prefer a temporary commit.
 
+## Branch Naming
+
+Work lands on **`develop`**. `main` holds released state and is merged into from
+`develop`, not committed to directly.
+
+Branches carry a purpose, and where useful an author slug:
+
+- `develop` — shared integration branch
+- `feat/<slug>-<subject>`, `fix/<slug>-<subject>`, `chore/<slug>-<subject>` for
+  work that needs its own branch before reaching `develop`
+
+**Do not leave a branch under whatever name the tooling minted.** Claude Code
+creates a session worktree on a branch like `claude/<task>-<hash>`; that is a
+tool artifact, not a project branch, and it must be renamed before anything is
+pushed:
+
+```bash
+git branch -m claude/<whatever> <proper-name>
+git push -u origin <proper-name>
+```
+
+Recorded 2026-09-10 after exactly that happened: a session branch was pushed
+under its generated name and had to be renamed on the remote. Nothing in this
+file said not to, which is why it now does.
+
 ## Naming When More Than One Developer Contributes
 
 Most harness IDs live in a single index table each — questions, assumptions,
