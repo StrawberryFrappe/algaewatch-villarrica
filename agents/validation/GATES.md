@@ -5,11 +5,49 @@
 | Gate | Applies When | Pass Criteria | Evidence |
 |---|---|---|---|
 | GATE-HM Harness Mounted | Always | Harness accepted by user after review | Harness mount review |
+| GATE-LOCAL Local Mount | Always | `agents/local/CAPABILITIES.md` exists and is current | The file itself |
 | GATE-DR Doctor | Always | No unresolved hard blockers | `agents/validation/DOCTOR.md` |
 | GATE-TEST Tests | Active — code project with a confirmed leakage history | Baseline-comparison checks run and pass; no training path consumes fabricated rows | Test output in `EVIDENCE_INDEX.md` |
 | GATE-DEPLOY Deployment | Inactive — deployment out of scope | Not applicable before the pitch | Not applicable |
 | GATE-PQ Portfolio Quality | Active — owner intends this as a portfolio piece | Visible output is credible, polished, and demonstrable | Screenshots / review |
 | GATE-MODEL Model Integrity | Active — project-specific, added after the 2026-09-09 audit | Rules MI-1 to MI-3 and PR-3 all pass. Defined in full below | Baseline comparisons in `EVIDENCE_INDEX.md` |
+| GATE-I18N Translation Currency | Active — two working languages, English canonical | Every translated file's `source_sha` matches the current hash of the canonical file it names | `python agents/check_translations.py` |
+
+## Local Mount Gate
+
+Implementation work requires the local half of the harness to exist. A harness
+that does not know what its agent can do will either plan work the environment
+cannot perform, or quietly downgrade a review to a single-agent pass without
+saying so.
+
+Because `agents/local/` never travels with the repository, every clone lands
+without it and is forced through the setup. That is how the harness re-adapts to
+each machine rather than arriving pre-loaded with its author's environment.
+
+Reading documents and making trivial corrections are not blocked. The doctor
+reports the absence as a warning, and as a hard blocker under `--strict`.
+
+Setup instructions are in `agents/LOCAL_SETUP.md`, which is committed precisely
+because the directory it describes is not.
+
+## Translation Currency Gate
+
+This project carries English and Spanish. English is canonical; the scope of what
+is translated, and why it stops where it does, is ADR-sf-0006.
+
+The gate is one question per translated file: does its recorded `source_sha`
+still match the hash of the canonical file it names? A mismatch says the source
+moved and the translation has not caught up. It says nothing about whether the
+translation is *good* — only that it is not stale.
+
+`agents/harness_doctor.py` does **not** check this; the kernel ships no i18n
+check. `agents/check_translations.py` is what makes this gate an artifact rather
+than a promise, per the evidence rule at the foot of this file.
+
+Line endings are pinned in `.gitattributes` for `AGENTS.md` and `agents/**/*.md`.
+Without that, `git hash-object --no-filters` answers differently on machines with
+different `core.autocrlf`, and the gate reports drift on files nobody touched —
+which is worse than reporting none.
 
 ## Portfolio Quality Gate
 
@@ -54,9 +92,11 @@ A model that fails any of these does not ship, regardless of how good its
 headline metric looks. A good metric from a failing pipeline is the specific
 failure mode this gate exists to catch.
 
-## Rule
+## Rules
 
-Passing tests are not enough when the visible product is weak.
+- Passing tests are not enough when the visible product is weak.
+- Every gate names its evidence. A gate whose evidence is a claim rather than an
+  artifact has not been passed.
 
 Project addendum: a good metric is not enough when the pipeline that produced it
 is not trustworthy. The audit that motivated this harness found metrics that

@@ -60,11 +60,13 @@ hygiene. Both were checked and passed.
 | Gate | Active | Reason |
 |---|---|---|
 | GATE-HM Harness Mounted | yes | Always required |
+| GATE-LOCAL Local Mount | yes | Always required since kernel `5dee2cf`. Live rather than nominal now that two machines are involved |
 | GATE-DR Doctor | yes | Always required |
 | GATE-TEST Tests | yes | Data/ML project with a confirmed leakage history. Baseline-comparison checks (MI-1) must be executable and re-runnable, not ad-hoc |
 | GATE-DEPLOY Deployment | no | Deployment is explicitly out of scope; local evidence only |
 | GATE-PQ Portfolio Quality | yes | Owner intends this as a portfolio piece and has flagged the current visual quality as unacceptable |
 | GATE-MODEL Model Integrity | yes | Project-specific gate added after the 2026-09-09 audit. Encodes rules MI-1 to MI-3 so the leakage found cannot silently return. Defined in `agents/validation/GATES.md` |
+| GATE-I18N Translation Currency | yes | Two working languages as of 2026-09-09. English canonical; see ADR-sf-0006. Checked by `agents/check_translations.py`, not by the doctor |
 
 ## Evidence Bar
 
@@ -90,14 +92,35 @@ re-collect satellite data. This is a deliberate property and should be preserved
 
 ## Collaboration Posture
 
-**Solo-first, upstream-compatible.** Development proceeds on the owner's fork
-(`origin` → `StrawberryFrappe/algaewatch-villarrica`) with the original author's
-repository retained as `upstream` (`Luchosqi/algaewatch-villarrica`).
+**Two contributors, upstream merge intended.** Revised 2026-09-09; see
+ADR-sf-0005. This section previously read "solo-first" and that is no longer
+true.
 
-- The original author is not expected to contribute further development time,
-  but the door to merging back upstream is deliberately kept open.
-- Therefore: avoid gratuitous restructuring, keep commits reviewable by someone
-  who did not attend the audit session, and preserve the original commit history
-  and authorship.
-- Decisions that would be hard to reverse — notably the map library — are
-  recorded as provisional pending consultation with the original author.
+| Slug | Contributor | Remote | Scope |
+|---|---|---|---|
+| `sf` | StrawberryFrappe, repository owner | `origin` → `StrawberryFrappe/algaewatch-villarrica` | The model layer: WI-004, WI-005 |
+| `lq` | Luchosqi, original author of `4b37bea` | `upstream` → `Luchosqi/algaewatch-villarrica` | The frontend: BL-009, BL-010, BL-013, BL-019, BL-021 |
+
+The repository is being handed back to `lq`, with the harness as a substantial
+part of the handover. What was previously politeness is now load-bearing:
+
+- Avoid gratuitous restructuring. Keep commits reviewable by someone who did not
+  attend the audit session, because one of the two contributors did not.
+- Preserve the original commit history and authorship.
+- The split is by subsystem, so the two halves share no files. With the pitch
+  roughly one day out, a boundary needing no coordination beats an optimal
+  allocation that does.
+- ADR 0003 (map library) was held provisional pending `lq`'s opinion. It is now
+  **his to settle**, and frontend work should not start before he answers.
+- Everything in `agents/` is read by both, including the audit's assessment of
+  the modelling layer `lq` wrote. Findings carry reproduction commands so he can
+  check them rather than take them on trust.
+
+**Two working languages.** English canonical, Spanish siblings for entry
+documents. See ADR-sf-0006, `agents/i18n/TRANSLATION_PROTOCOL.md`, and
+`agents/i18n/GLOSSARY.md`.
+
+**Capability scans are per contributor** and are never committed. Each machine
+describes itself at `agents/local/CAPABILITIES.md` before implementation work.
+The scan under `agents/reviews/20260909/` is a record of one machine on one day,
+not a claim about the current environment.

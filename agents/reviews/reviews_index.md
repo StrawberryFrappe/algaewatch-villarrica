@@ -7,6 +7,18 @@ folders.
 |---|---|---|---|
 | 2026-09-09 | Capability scan | Recorded | Establishes what this platform can actually do, and records four downgrades — notably no `gh` CLI and no test runner |
 | 2026-09-09 | Harness mount review | APPROVE WITH FIXES (originally HOLD) | Independent subagent review. Found a P0 — a completion claim pointing at a review document that did not yet exist — plus two false claims about current code state. All eleven findings resolved. Established the rule that any figure quoted in a harness document must carry a reproduction command |
+| 2026-09-09 | Harness upgrade review (`sf`) | See the document | Independent subagent review of the `a5f428d` → `5dee2cf` upgrade, the two-contributor split, and the i18n mount. Reviewed before the repository is handed to a second person, which is the point at which a wrong harness claim stops being self-inflicted |
+
+## A Note On The Capability Scan
+
+The 2026-09-09 capability scan above is a record of **one machine on one day**.
+Since kernel `5dee2cf` (ADR-sf-0005), capability scans are per contributor and
+live uncommitted at `agents/local/CAPABILITIES.md`.
+
+Do not read that dated scan as a claim about the current environment. It asserts
+subagents, worktrees and a working credential helper; an agent on another machine
+believing it would plan delegated reviews it may be unable to run, and report
+them as done.
 
 ## Review Types
 
