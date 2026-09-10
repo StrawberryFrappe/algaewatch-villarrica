@@ -13,7 +13,10 @@ numpy
 pandas
 
 # model
-scikit-learn
+# Pinned: the committed src/model/artifacts/*.joblib are pickled with this
+# version and fail to unpickle on a mismatched one (sklearn moves internal
+# modules between minors). Bump this and the artifacts together.
+scikit-learn==1.7.2
 xgboost
 joblib
 
