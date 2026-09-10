@@ -1,6 +1,6 @@
 ---
 source: SYSTEM_OVERVIEW.md
-source_sha: fcb7fbd5899fcdd608ae2d183d2af7af4b94c0c7
+source_sha: e5ece5bc71303980079957e22c14802873613b93
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -69,6 +69,14 @@ confianza declarada, no una falsa certeza puntual.
 recolectados; un dashboard React + Leaflet renderiza cuatro vistas (Mapa,
 Estaciones, Tendencias, Modelo).
 
+Se exponen dos modelos, y la distinción importa. `/model/metrics` es el modelo
+**Gradient Boosting legacy**, que es el que realmente alimenta `/risk` y
+`/forecast`. `/model/candidate` es el **modelo cuantílico per-píxel** descrito
+arriba: evaluado por completo, reportado con sus líneas base y el detalle por
+fold, y explícitamente `serving: false`. La vista Modelo muestra los dos, y
+etiqueta al candidato como que no alimenta el mapa. Nada da a entender que el
+mapa corre sobre un modelo sobre el que no corre.
+
 ---
 
 ## 3. De dónde salen los números
@@ -101,6 +109,7 @@ alguien puede preguntar.
 | Componente | Estado |
 |---|---|
 | Imágenes Sentinel-2 y FAI | **Real.** Escenas en vivo, credenciales reales, enmascarado de agua real |
+| Modelo per-píxel en el dashboard | **Servido, pero no alimenta nada.** `GET /model/candidate` lo reporta y la vista Modelo lo renderiza, con `serving: false` en el payload y una etiqueta "NO ALIMENTA EL MAPA" en pantalla. `/risk` y `/forecast` siguen corriendo el modelo legacy |
 | Clima ERA5-Land | **Real.** 13 meses backfilleados desde la API del CDS de Copernicus |
 | Entrenamiento y evaluación | **Real.** No hay datos mock en ninguna parte del pipeline |
 | Dashboard y API | **Real.** `mock_data.py` fue eliminado; cada endpoint sirve datos recolectados |
@@ -137,7 +146,7 @@ Dos reglas más importan:
   evaluación deja afuera un cuadrante geográfico entero del lago, y el modelo se
   puntúa sobre una región que nunca vio.
 
-Esto lo imponen ~88 tests automatizados, no las buenas intenciones.
+Esto lo imponen 92 tests automatizados, no las buenas intenciones.
 
 ---
 
@@ -270,6 +279,8 @@ En orden de dependencia:
 | Pregunta | Archivo |
 |---|---|
 | Estado actual, qué hacer después | `agents/RUN_STATE.md` |
+| Cargar el modelo entrenado y predecir | `src/model/per_pixel_infer.py` |
+| El endpoint del candidato | `backend/app/routers/model_metrics.py` |
 | Cada número, con un comando que lo reproduce | `agents/validation/EVIDENCE_INDEX.md` |
 | Por qué se tomó una decisión | `agents/adrs/` |
 | El índice satelital | `src/features/fai.py` |

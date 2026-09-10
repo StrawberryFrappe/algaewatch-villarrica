@@ -59,6 +59,13 @@ stated confidence, not a false point certainty.
 **Stage 4 — delivery.** A FastAPI backend serves the model and the collected data;
 a React + Leaflet dashboard renders four views (Map, Stations, Trends, Model).
 
+Two models are exposed, and the distinction matters. `/model/metrics` is the
+**legacy Gradient Boosting** model that actually drives `/risk` and `/forecast`.
+`/model/candidate` is the **per-pixel quantile model** described above: fully
+evaluated, reported with its baselines and per-fold detail, and explicitly
+`serving: false`. The Modelo view shows both, and labels the candidate as not
+feeding the map. Nothing implies the map runs on a model it does not run on.
+
 ---
 
 ## 3. Where the numbers come from
@@ -90,6 +97,7 @@ presentation where someone may ask.
 | Component | Status |
 |---|---|
 | Sentinel-2 imagery and FAI | **Real.** Live scenes, real credentials, real water masking |
+| Per-pixel model in the dashboard | **Served, but not driving anything.** `GET /model/candidate` reports it and the Modelo view renders it, with `serving: false` in the payload and a "NO ALIMENTA EL MAPA" badge on screen. `/risk` and `/forecast` still run the legacy model |
 | ERA5-Land weather | **Real.** 13 months backfilled from the Copernicus CDS API |
 | Model training and evaluation | **Real.** No mock data anywhere in the pipeline |
 | Dashboard and API | **Real.** `mock_data.py` was deleted; every endpoint serves collected data |
@@ -124,7 +132,7 @@ Two further rules matter:
   random splits leak badly. Each evaluation fold holds out an entire geographic
   quadrant of the lake, and the model is scored on a region it never saw.
 
-These are enforced by ~88 automated tests, not by good intentions.
+These are enforced by 92 automated tests, not by good intentions.
 
 ---
 
@@ -251,6 +259,8 @@ In dependency order:
 | Question | File |
 |---|---|
 | Current state, what to do next | `agents/RUN_STATE.md` |
+| Loading the trained model and predicting | `src/model/per_pixel_infer.py` |
+| The candidate endpoint | `backend/app/routers/model_metrics.py` |
 | Every number, with a command that reproduces it | `agents/validation/EVIDENCE_INDEX.md` |
 | Why a decision was made | `agents/adrs/` |
 | The satellite index | `src/features/fai.py` |

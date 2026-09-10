@@ -16,6 +16,16 @@ matters operationally) is catastrophic at 0.004568 and drags the unweighted
 mean. The q10–q90 interval is well calibrated: 0.8135 coverage against a nominal
 0.80.
 
+**Wired into the product on branch `demoday` (based on the above).**
+`src/model/per_pixel_infer.py` gives the artifact its first load path — it was
+write-only — and `GET /model/candidate` reports the candidate beside its
+baselines with the per-fold detail. The Modelo view renders it, badged
+`NO ALIMENTA EL MAPA`, because `/risk` and `/forecast` still run the legacy
+artifacts. Three bugs fixed on the way: a Windows cp1252 encoding bug that
+rendered the Spanish caveats as mojibake, a `leaflet.heat` zero-width
+`getImageData` crash that unmounted the **entire** dashboard, and the absence of
+any React error boundary. Tests 92 passed / 8 xfailed.
+
 Also on that branch: the two open questions from `PARA_JUN.md` §3 are decided
 (ADR-sf-0010 D1/D2), and three defects found by running the runbook end to end
 are fixed — `collect_era5.py` could never complete, `baselines.trivial_rule`

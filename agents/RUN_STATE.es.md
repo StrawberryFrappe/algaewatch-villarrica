@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 67ed53dff427325bbff08dbe8dc3b8ab6da43763
+source_sha: 2ab9bab4906ac674fe9ab4352455484bc4c4e347
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -23,6 +23,17 @@ el fold 2 (2026-02-13..2026-03-08, la ventana más volátil de la serie y la que
 importa operativamente) es catastrófico con 0,004568 y arrastra la media sin
 ponderar. El intervalo q10–q90 está bien calibrado: cobertura 0,8135 contra un
 nominal de 0,80.
+
+**Integrado al producto en la rama `demoday` (basada en la anterior).**
+`src/model/per_pixel_infer.py` le da al artefacto su primer camino de carga —
+era de solo escritura — y `GET /model/candidate` reporta al candidato junto a
+sus líneas base con el detalle por fold. La vista Modelo lo renderiza, con la
+etiqueta `NO ALIMENTA EL MAPA`, porque `/risk` y `/forecast` siguen corriendo
+los artefactos legacy. Tres bugs corregidos en el camino: un bug de codificación
+cp1252 en Windows que mostraba los caveats en español como mojibake, un crash de
+`getImageData` con ancho cero en `leaflet.heat` que desmontaba el dashboard
+**entero**, y la ausencia de cualquier error boundary de React. Tests: 92
+pasados / 8 xfailed.
 
 También en esa rama: las dos preguntas abiertas de `PARA_JUN.md` §3 quedaron
 decididas (ADR-sf-0010 D1/D2), y se corrigieron tres defectos encontrados al
