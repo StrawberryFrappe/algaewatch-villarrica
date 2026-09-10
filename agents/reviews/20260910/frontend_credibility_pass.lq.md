@@ -122,8 +122,9 @@ restyle.
 ## Superseded by the light-theme pass (same day)
 
 Later on 2026-09-10 the owner redirected the frontend to a **light pastel theme**
-(ADR-lq-0008, WI-011). That pass replaces the dark magma ramp above with a
-light-surface pastel ramp:
+(ADR-lq-0008, WI-013 — minted by `lq` as WI-011, renumbered on the develop→main
+merge for an ID collision; see the note in `agents/planning/WORK_ITEMS.md`). That
+pass replaces the dark magma ramp above with a light-surface pastel ramp:
 
 | Level | dark (this pass) | light (ADR-lq-0008) |
 |---|---|---|
