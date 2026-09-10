@@ -145,12 +145,15 @@ def train(df: pd.DataFrame, bloom_threshold: float, holdout_frac: float = 0.2, n
         "baselines": baselines,
         "beats_baselines": verdict,
         "retrained_at": date.today().isoformat(),
+        # Rendered verbatim in the Spanish UI (ModelView disclaimer), so it is
+        # written in Spanish. The ERA5 note tracks the backfill, not the licence:
+        # CDS licence acceptance cleared on 2026-09-10.
         "caveats": (
-            "Smoke-scale real-data run: FAI-only features (ERA5 pending CDS licence "
-            "acceptance; in-situ pending SNIA CSVs). Sample size and feature set are "
-            "not yet sufficient for production-grade metrics. TRL 2 — not validated "
-            "in the field. These figures do not beat their baselines: see "
-            "'baselines' and 'beats_baselines' in this file (rule MI-1)."
+            "Corrida real a escala de smoke test: variables solo de FAI (ERA5-Land pendient"
+            "e de backfill; in situ pendiente de los CSV de SNIA). El tamaño de muestra y e"
+            "l conjunto de variables todavía no alcanzan para métricas de producción. TRL 2"
+            " — no validado en campo. Estas cifras no superan a sus baselines: ver 'baselin"
+            "es' y 'beats_baselines' en este archivo (regla MI-1)."
         ),
     }
     return {"classifier": classifier, "regressor": regressor, "metrics": metrics}
