@@ -5,7 +5,7 @@
   "target_kind": "continuous",
   "fai_alert_threshold": null,
   "classification": null,
-  "classification_reason": "No alert threshold is baked into training; policy threshold remains downstream (MI-3).",
+  "classification_reason": "No se hornea ning\u00fan umbral de alerta en el entrenamiento; el umbral de pol\u00edtica queda aguas abajo (MI-3).",
   "n_pairs": 56668,
   "n_pixels": 1866,
   "n_anchor_dates": 34,
@@ -118,5 +118,5 @@
     "persistence": false,
     "climatology": false
   },
-  "caveats": "TRL 2 \u2014 not validated in the field. Pixel rows are spatially autocorrelated and are not independent samples. Metrics use target-date embargo and held-out 2x2 lake regions. ERA5-Land is a coarse bbox mean, and overlapping anchor/target dates still induce temporal residual dependence (BL-033)."
+  "caveats": "TRL 2 \u2014 no validado en campo. Las filas de p\u00edxeles est\u00e1n autocorrelacionadas espacialmente y no son muestras independientes. Las m\u00e9tricas usan embargo por fecha objetivo y regiones 2x2 del lago dejadas afuera. ERA5-Land es una media gruesa sobre el bounding box, y las fechas ancla/objetivo superpuestas todav\u00eda inducen dependencia residual temporal (BL-033)."
 }

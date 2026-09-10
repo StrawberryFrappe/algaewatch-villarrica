@@ -163,5 +163,7 @@ def save_artifacts(result: dict, out_dir: Path = ARTIFACTS_DIR) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(result["classifier"], out_dir / "classifier.joblib")
     joblib.dump(result["regressor"], out_dir / "regressor.joblib")
-    with open(out_dir / "metrics.json", "w") as f:
-        json.dump(result["metrics"], f, indent=2)
+    # encoding pinned for the same reason infer.py pins it on the way in: the
+    # default is cp1252 on Windows and `caveats` is Spanish prose.
+    with open(out_dir / "metrics.json", "w", encoding="utf-8") as f:
+        json.dump(result["metrics"], f, indent=2, ensure_ascii=False)

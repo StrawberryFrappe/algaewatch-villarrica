@@ -27,7 +27,11 @@ def load_artifacts(artifacts_dir: Path = ARTIFACTS_DIR) -> dict:
     return {
         "classifier": joblib.load(classifier_path),
         "regressor": joblib.load(regressor_path),
-        "metrics": json.loads(metrics_path.read_text()),
+        # encoding pinned: read_text() defaults to the platform encoding, which is
+        # cp1252 on Windows. metrics.json carries Spanish caveats that are
+        # rendered verbatim in the UI, so an implicit decode turned "tamaño"
+        # into mojibake on the dashboard.
+        "metrics": json.loads(metrics_path.read_text(encoding="utf-8")),
     }
 
 

@@ -271,7 +271,11 @@ def fit_and_evaluate(
         "target_kind": "continuous",
         "fai_alert_threshold": None,
         "classification": None,
-        "classification_reason": "No alert threshold is baked into training; policy threshold remains downstream (MI-3).",
+        # Rendered verbatim in the Spanish UI (ModelView candidate panel).
+        "classification_reason": (
+            "No se hornea ningún umbral de alerta en el entrenamiento; el umbral "
+            "de política queda aguas abajo (MI-3)."
+        ),
         "n_pairs": len(frame),
         "n_pixels": int(frame["pixel_id"].nunique()),
         "n_anchor_dates": int(frame["date"].nunique()),
@@ -305,17 +309,26 @@ def fit_and_evaluate(
             "persistence": bool(mae < persistence),
             "climatology": bool(mae < climatology),
         },
+        # Rendered verbatim in the Spanish UI (ModelView candidate panel), so it
+        # is written in Spanish -- same rule as classification_reason above.
         "caveats": (
-            "TRL 2 — not validated in the field. Pixel rows are spatially autocorrelated and are not "
-            "independent samples. Metrics use target-date embargo and held-out 2x2 lake regions. "
-            "ERA5-Land is a coarse bbox mean, and overlapping anchor/target dates still induce "
-            "temporal residual dependence (BL-033)."
+            "TRL 2 — no validado en campo. Las filas de píxeles están "
+            "autocorrelacionadas espacialmente y no son muestras independientes. Las "
+            "métricas usan embargo por fecha objetivo y regiones 2x2 del lago dejadas "
+            "afuera. ERA5-Land es una media gruesa sobre el bounding box, y las fechas "
+            "ancla/objetivo superpuestas todavía inducen dependencia residual temporal "
+            "(BL-033)."
         ),
     }
     artifact = {
         "state_dict": final_model.state_dict(),
-        "feature_mean": final_scaler.mean,
-        "feature_scale": final_scaler.scale,
+        # Tensors, not the scaler's numpy arrays. torch.load defaults to
+        # weights_only=True from 2.6 on, and that unpickler rejects numpy
+        # arrays -- which would force every reader to opt back into arbitrary
+        # code execution just to read our own scaler. Storing tensors keeps the
+        # artifact loadable under the safe default. See per_pixel_infer.py.
+        "feature_mean": torch.as_tensor(final_scaler.mean, dtype=torch.float64),
+        "feature_scale": torch.as_tensor(final_scaler.scale, dtype=torch.float64),
         "features": list(FEATURES),
         "quantiles": list(QUANTILES),
     }

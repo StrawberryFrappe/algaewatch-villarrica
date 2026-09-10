@@ -133,3 +133,60 @@ class ModelMetricsResponse(BaseModel):
     validation: Validation
     disclaimer: str
     source: Literal["mock", "model"]
+
+
+class CandidateFold(BaseModel):
+    """One evaluation fold of the per-pixel candidate.
+
+    Carried to the client because the fold detail is the honest version of the
+    result: the unweighted mean hides that the model beats climatology on some
+    regions and fails badly on the most volatile window.
+    """
+
+    fold: int
+    held_spatial_block: int
+    first_validation_date: str
+    last_validation_date: str
+    n_train: int
+    n_validation: int
+    mae_fai: float
+    persistence_mae_fai: float
+    climatology_mae_fai: float
+    q10_q90_coverage: float
+
+
+class CandidateMetrics(BaseModel):
+    mae_fai: float
+    mae_fai_cv_std: float
+    q10_q90_coverage: float
+    mean_interval_width_fai: float
+
+
+class CandidateModelResponse(BaseModel):
+    """The per-pixel quantile model.
+
+    Reported separately from `/model/metrics` because it is a *candidate*: it is
+    evaluated and honest, but it does not drive `/risk` or `/forecast`. Merging
+    the two would imply the map is running on this model, which it is not.
+    `serving` says so explicitly rather than leaving the client to assume.
+    """
+
+    version: str
+    signal: str
+    target: str
+    target_kind: Literal["continuous"]
+    serving: bool
+    n_pairs: int
+    n_pixels: int
+    n_anchor_dates: int
+    date_range: dict[str, str]
+    features_used: list[str]
+    quantiles: list[float]
+    metrics: CandidateMetrics
+    baselines: dict[str, Any]
+    beats_baselines: dict[str, bool | None]
+    cv_scheme: str
+    folds: list[CandidateFold]
+    classification: None
+    classification_reason: str
+    disclaimer: str

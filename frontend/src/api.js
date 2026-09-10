@@ -22,4 +22,7 @@ export const api = {
   getRiskGrid: () => get('/risk/grid'),
   getForecast: (date) => get(`/forecast?date=${date}`),
   getModelMetrics: () => get('/model/metrics'),
+  // 404s when this checkout has never run scripts/train_per_pixel.py. Callers
+  // treat that as "no candidate" and hide the panel, not as a load failure.
+  getModelCandidate: () => get('/model/candidate'),
 };

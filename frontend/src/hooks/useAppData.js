@@ -37,6 +37,7 @@ export function useAppData() {
   const [riskGrid, setRiskGrid] = useState(null);
   const [forecast, setForecast] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  const [candidate, setCandidate] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   // Initial load: station catalog, full observation window, model metrics,
@@ -55,6 +56,18 @@ export function useAppData() {
         setDay(Math.max(0, uniqueDates.length - 1)); // most recent day, like the design's initial state
       })
       .catch((err) => !cancelled && setLoadError(err.message));
+    return () => { cancelled = true; };
+  }, []);
+
+  // The per-pixel candidate is fetched on its own and its failure is swallowed
+  // on purpose. It is an optional, non-serving model: a checkout that has not
+  // trained it must still render the dashboard, so a 404 here must not reach
+  // setLoadError and blank the whole app.
+  useEffect(() => {
+    let cancelled = false;
+    api.getModelCandidate()
+      .then((c) => !cancelled && setCandidate(c))
+      .catch(() => !cancelled && setCandidate(null));
     return () => { cancelled = true; };
   }, []);
 
@@ -116,6 +129,7 @@ export function useAppData() {
     trendSeries,
     hasInSitu,
     risk,
+    candidate,
     riskGrid,
     forecast,
     metrics,

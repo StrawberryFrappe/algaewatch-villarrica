@@ -19,6 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.features.build_dataset import build_daily_series  # noqa: E402
 from src.features.stations import STATION_IDS, STATIONS, STATIONS_BY_ID  # noqa: E402
 from src.model import infer  # noqa: E402
+from src.model import per_pixel_infer  # noqa: E402
 
 FAI_CSV = PROJECT_ROOT / "data" / "processed" / "fai_series_raw.csv"
 GRID_CSV = PROJECT_ROOT / "data" / "processed" / "fai_grid_latest.csv"
@@ -197,3 +198,19 @@ def get_forecast(iso_date: str) -> dict:
 
 def get_model_metrics() -> dict:
     return _artifacts["metrics"]
+
+
+def get_per_pixel_metrics() -> dict | None:
+    """Metrics for the per-pixel candidate, or None when it has not been trained.
+
+    Returns None rather than raising: the candidate is optional. A checkout that
+    has never run `scripts/train_per_pixel.py` must still serve the dashboard,
+    so the router turns None into a 404 and the client hides the panel. This is
+    deliberately NOT loaded at import time like the legacy artifacts -- the
+    candidate does not drive any prediction path, and making the whole backend
+    refuse to start over an optional model would be a bad trade.
+    """
+    try:
+        return per_pixel_infer.load_metrics()
+    except per_pixel_infer.PerPixelNotTrainedError:
+        return None

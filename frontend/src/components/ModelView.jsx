@@ -17,7 +17,143 @@ const CM_ROWS = [
   { key: 'true_negatives', label: 'Verdaderos negativos', tone: '#43589A' },
 ];
 
-export function ModelView({ metrics }) {
+
+// The per-pixel candidate. Rendered as a clearly separate block, never merged
+// into the production model's cards: it is evaluated but does not drive /risk or
+// /forecast, and the payload's `serving: false` is what says so. Showing them as
+// one model would imply the map runs on this, which it does not.
+function CandidatePanel({ candidate }) {
+  if (!candidate) return null;
+
+  const c = candidate;
+  const persistence = c.baselines?.persistence?.mae_fai;
+  const climatology = c.baselines?.climatology?.mae_fai;
+  const beatsAny = Object.values(c.beats_baselines ?? {}).some(Boolean);
+  const foldsBeating = c.folds.filter((f) => f.mae_fai < f.climatology_mae_fai).length;
+
+  return (
+    <section style={{ marginTop: 26, paddingTop: 20, borderTop: '1px solid var(--hairline)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <div className="view-eyebrow" style={{ margin: 0 }}>CANDIDATO · {c.version}</div>
+        <span
+          style={{
+            fontSize: 9.5,
+            letterSpacing: 0.5,
+            padding: '2px 7px',
+            borderRadius: 999,
+            border: '1px solid var(--hairline)',
+            color: 'var(--color-text-tertiary-2)',
+          }}
+        >
+          {c.serving ? 'EN PRODUCCIÓN' : 'NO ALIMENTA EL MAPA'}
+        </span>
+      </div>
+      <div className="view-title" style={{ marginTop: 4 }}>Red cuantílica per-píxel + ERA5-Land</div>
+      <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary)', marginTop: 6, lineHeight: 1.55 }}>
+        {c.n_pairs.toLocaleString('es-CL')} pares honestos · {c.n_pixels.toLocaleString('es-CL')} píxeles ·{' '}
+        {c.n_anchor_dates} fechas ancla · {c.date_range.start} a {c.date_range.end}. Sin filas rellenadas.
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 16 }}>
+        <div className="model-card">
+          <div className="model-card-eyebrow">VEREDICTO CONTRA BASELINES</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 11, fontSize: 12.5 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>MAE del modelo</span>
+              <span style={{ fontSize: 15, color: 'var(--color-text-primary)' }}>{numEs(c.metrics.mae_fai, 6)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--color-text-dim)' }}>
+              <span>Persistencia</span>
+              <span>{numEs(persistence, 6)} · {c.beats_baselines?.persistence ? 'superada' : 'no superada'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--color-text-dim)' }}>
+              <span>Climatología</span>
+              <span>{numEs(climatology, 6)} · {c.beats_baselines?.climatology ? 'superada' : 'no superada'}</span>
+            </div>
+            <div style={{ color: 'var(--color-text-dim)', lineHeight: 1.45, marginTop: 2 }}>
+              {beatsAny
+                ? 'Supera al menos una línea base en el promedio.'
+                : `No supera a ninguna en el promedio — pero gana en ${foldsBeating} de ${c.folds.length} folds. Ver el detalle.`}
+            </div>
+          </div>
+        </div>
+
+        <div className="model-card">
+          <div className="model-card-eyebrow">CALIBRACIÓN DEL INTERVALO</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 11, fontSize: 12.5 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Cobertura q10–q90</span>
+              <span style={{ fontSize: 15, color: '#3F7E5C' }}>{numEs(c.metrics.q10_q90_coverage * 100, 2)}%</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--color-text-dim)' }}>
+              <span>Nominal</span><span>80,00%</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--color-text-dim)' }}>
+              <span>Ancho medio</span><span>{numEs(c.metrics.mean_interval_width_fai, 6)}</span>
+            </div>
+            <div style={{ color: 'var(--color-text-dim)', lineHeight: 1.45, marginTop: 2 }}>
+              El modelo no acierta el valor puntual mejor que la climatología, pero su declaración de
+              incertidumbre es honesta: el intervalo contiene al valor real con la frecuencia que promete.
+            </div>
+          </div>
+        </div>
+
+        <div className="model-card">
+          <div className="model-card-eyebrow">CLASIFICACIÓN DE FLORACIÓN</div>
+          <div style={{ marginTop: 11, fontSize: 12.5 }}>
+            <div style={{ fontSize: 15, color: 'var(--color-text-tertiary-2)' }}>No reportada</div>
+            <div style={{ color: 'var(--color-text-dim)', lineHeight: 1.5, marginTop: 7 }}>
+              {c.classification_reason}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="model-card" style={{ marginTop: 12 }}>
+        <div className="model-card-eyebrow">VALIDACIÓN POR FOLD · {c.cv_scheme}</div>
+        <div style={{ overflowX: 'auto', marginTop: 11 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ color: 'var(--color-text-label)', textAlign: 'right' }}>
+                <th style={{ textAlign: 'left', fontWeight: 500, padding: '4px 8px 6px 0' }}>Fold</th>
+                <th style={{ textAlign: 'left', fontWeight: 500, padding: '4px 8px 6px 0' }}>Ventana de validación</th>
+                <th style={{ fontWeight: 500, padding: '4px 0 6px 8px' }}>Región excl.</th>
+                <th style={{ fontWeight: 500, padding: '4px 0 6px 8px' }}>Modelo</th>
+                <th style={{ fontWeight: 500, padding: '4px 0 6px 8px' }}>Climatología</th>
+                <th style={{ fontWeight: 500, padding: '4px 0 6px 8px' }}>Cobertura</th>
+              </tr>
+            </thead>
+            <tbody>
+              {c.folds.map((f) => {
+                const wins = f.mae_fai < f.climatology_mae_fai;
+                return (
+                  <tr key={f.fold} style={{ borderTop: '1px solid var(--hairline)', textAlign: 'right' }}>
+                    <td style={{ textAlign: 'left', padding: '6px 8px 6px 0', color: 'var(--color-text-secondary)' }}>{f.fold}</td>
+                    <td style={{ textAlign: 'left', padding: '6px 8px 6px 0', color: 'var(--color-text-dim)', whiteSpace: 'nowrap' }}>
+                      {f.first_validation_date} → {f.last_validation_date}
+                    </td>
+                    <td style={{ padding: '6px 0 6px 8px', color: 'var(--color-text-dim)' }}>{f.held_spatial_block}</td>
+                    <td style={{ padding: '6px 0 6px 8px', color: wins ? '#3F7E5C' : 'var(--color-text-primary)' }}>
+                      {numEs(f.mae_fai, 6)}{wins ? ' ✓' : ''}
+                    </td>
+                    <td style={{ padding: '6px 0 6px 8px', color: 'var(--color-text-dim)' }}>{numEs(f.climatology_mae_fai, 6)}</td>
+                    <td style={{ padding: '6px 0 6px 8px', color: 'var(--color-text-dim)' }}>{numEs(f.q10_q90_coverage * 100, 1)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 11 }}>
+          <strong style={{ color: 'var(--color-text-tertiary-2)', fontWeight: 600 }}>{TRL_SEAL}.</strong>{' '}
+          {c.disclaimer}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function ModelView({ metrics, candidate }) {
   if (!metrics) {
     return (
       <div className="view-panel glass-content">
@@ -104,6 +240,8 @@ export function ModelView({ metrics }) {
           </div>
         </div>
       </div>
+
+      <CandidatePanel candidate={candidate} />
     </div>
   );
 }

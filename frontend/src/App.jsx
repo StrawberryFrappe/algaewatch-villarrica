@@ -3,13 +3,14 @@ import { MapView } from './components/MapView/MapView';
 import { StationsView } from './components/StationsView';
 import { TrendsView } from './components/TrendsView';
 import { ModelView, ModelFooter } from './components/ModelView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppData } from './hooks/useAppData';
 
 export default function App() {
   const data = useAppData();
   const {
     view, setView, day, setDay, hover, setHover, pinned, setPinned, open, setOpen,
-    dates, selectedDate, stationRows, trendSeries, hasInSitu, riskGrid, risk, forecast, metrics,
+    dates, selectedDate, stationRows, trendSeries, hasInSitu, riskGrid, risk, forecast, metrics, candidate,
     lastPassDate, selectedIsProjected,
     loadError, isReady,
   } = data;
@@ -39,6 +40,7 @@ export default function App() {
         )}
 
         {!loadError && isReady && view === 'mapa' && (
+          <ErrorBoundary label="El mapa">
           <MapView
             stationRows={stationRows}
             hover={hover}
@@ -56,6 +58,7 @@ export default function App() {
             lastPassDate={lastPassDate}
             selectedIsProjected={selectedIsProjected}
           />
+          </ErrorBoundary>
         )}
 
         {!loadError && isReady && view === 'estaciones' && (
@@ -70,11 +73,13 @@ export default function App() {
         )}
 
         {!loadError && isReady && view === 'tendencias' && (
-          <TrendsView trendSeries={trendSeries} day={day} hasInSitu={hasInSitu} />
+          <ErrorBoundary label="La vista Tendencias">
+            <TrendsView trendSeries={trendSeries} day={day} hasInSitu={hasInSitu} />
+          </ErrorBoundary>
         )}
 
         {!loadError && isReady && view === 'modelo' && (
-          <ModelView metrics={metrics} />
+          <ErrorBoundary label="La vista Modelo"><ModelView metrics={metrics} candidate={candidate} /></ErrorBoundary>
         )}
         {!loadError && isReady && view === 'modelo' && <ModelFooter metrics={metrics} />}
       </main>
