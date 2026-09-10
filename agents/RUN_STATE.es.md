@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: a3700d65c79b2c751369495591f6a7314aa8e18e
+source_sha: 28592eefe840875435c8b510b447d3c0b299b3c6
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -75,6 +75,10 @@ píxel (ADR 0004 D3) es el camino hacia un modelo que sí trate sobre agua, y
 requiere WI-011 primero.
 
 `lq` sigue debiendo ADR 0003 antes de que empiece el trabajo de frontend.
+
+Hay un traspaso de sesión que cubre lo hecho, lo que el backlog espera a
+continuación, y cómo retomar desde `develop`, en
+`agents/execution/SESSION_HANDOFF.sf.md`.
 
 ## Lista de Progreso
 

@@ -59,6 +59,9 @@ path to a model that is about water, and it needs WI-011 first.
 
 `lq` still owes ADR 0003 before frontend work begins.
 
+A session handoff covering what was done, what the backlog expects next, and
+how to resume from `develop` is at `agents/execution/SESSION_HANDOFF.sf.md`.
+
 ## Progress Checklist
 
 Kept current so another contributor can pick this up mid-flight.
