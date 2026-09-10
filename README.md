@@ -8,6 +8,13 @@ variables meteorológicas y una API FastAPI con frontend React/Leaflet.
 > disponibles todavía. Las salidas no deben interpretarse como alertas sanitarias
 > ni operacionales.
 
+**¿Primera vez acá? Leé [`SYSTEM_OVERVIEW.es.md`](SYSTEM_OVERVIEW.es.md)**
+([English](SYSTEM_OVERVIEW.md)) — explica el sistema entero de cero: el problema,
+las cuatro etapas, qué es real y qué es stub, por qué las líneas base son el
+núcleo metodológico, el resultado dicho sin vueltas, y cómo correrlo. Está
+escrito para alguien que nunca abrió el repo, incluido quien prepare una
+presentación.
+
 ## Estado comprobado
 
 - Hay 56 pasadas reales de Sentinel-2 entre septiembre de 2025 y agosto de 2026.
@@ -72,10 +79,25 @@ compactas permiten volver a ejecutar pruebas y evaluación sin credenciales.
 npm --prefix frontend run dev
 ```
 
+Se exponen **dos** modelos, y la distinción importa:
+
+| Endpoint | Modelo | ¿Alimenta el mapa? |
+|---|---|---|
+| `GET /model/metrics` | Gradient Boosting legacy | **Sí** — `/risk` y `/forecast` corren sobre él |
+| `GET /model/candidate` | Red cuantílica per-píxel + ERA5 | **No** — `serving: false` en el payload |
+
+El candidato está evaluado y reportado junto a sus líneas base (persistencia y
+climatología) con el detalle por fold, pero no maneja ninguna predicción del
+dashboard. La vista Modelo lo muestra etiquetado `NO ALIMENTA EL MAPA`. Devuelve
+404 si este checkout nunca corrió `scripts/train_per_pixel.py`, y el frontend
+simplemente oculta el panel.
+
 La separación es estricta:
 
 - `src/features/` calcula FAI y variables derivadas; no entrena modelos.
 - `src/model/` solo consume tablas ya construidas; no llama APIs externas.
+- `src/model/per_pixel_infer.py` carga el artefacto entrenado y predice; es la
+  contraparte de `per_pixel.py`, que entrena y escribe.
 - `backend/app/data_source.py` es el único puente entre la API y el pipeline.
 
 El frontend sigue `design_handoff_algaewatch_villarrica/README.md`, con las
