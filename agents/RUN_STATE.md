@@ -2,6 +2,26 @@
 
 ## Current Phase
 
+**The per-pixel retrain is built, trained and measured (2026-09-10, ADR-sf-0010),
+on branch `feat/per-pixel-retrain-verdict` — not yet merged and NOT yet
+independently reviewed.** It is the first model in this repository trained on
+fully real inputs end to end: 56 Sentinel-2 passes, 13 months of ERA5-Land, no
+forward-filled row.
+
+**It loses to both baselines.** MAE 0.001999 ± 0.001501 against persistence
+0.001402 and climatology 0.001296 — the reported result under rule MI-1, not a
+number to be improved by tuning. Two of four folds *do* beat climatology; fold 2
+(2026-02-13..2026-03-08, the most volatile window in the series and the one that
+matters operationally) is catastrophic at 0.004568 and drags the unweighted
+mean. The q10–q90 interval is well calibrated: 0.8135 coverage against a nominal
+0.80.
+
+Also on that branch: the two open questions from `PARA_JUN.md` §3 are decided
+(ADR-sf-0010 D1/D2), and three defects found by running the runbook end to end
+are fixed — `collect_era5.py` could never complete, `baselines.trivial_rule`
+crashed the whole gate on a continuous-target table, and a plumbing test asserted
+a label was always present. See "Blockers" for what is still open.
+
 Harness accepted. Implementation under way on `sf`'s half. **WI-004 is done** —
 the baselines and the model-integrity checks are a permanent test suite.
 **BL-029 to BL-032 are fixed** — the four gate-correctness defects the WI-005
@@ -104,8 +124,26 @@ both baselines via per-pixel + weather — is at
 
 ## Next Action
 
-**The next modelling push — retrain to beat *both* baselines — is briefed in
-full at `agents/execution/SESSION_HANDOFF.lq.md`.** In short: the interim
+**1. Independently review `feat/per-pixel-retrain-verdict` before merging it.**
+Definition of Done §7. It has not been reviewed by anyone but its author, and it
+touches gate code (`src/model/baselines.py`, `tests/test_model_integrity.py`),
+which is exactly the category that produced two false passes in WI-005. Register
+the verdict in `agents/reviews/20260910/` and `reviews_index.md`.
+
+**2. Decide what to do about `check_no_fabricated_rows` (BL-037).** It fails on
+the per-pixel table with inflation 1.011. Investigated: false positive. 562
+duplicate groups, *none* sharing a date, on a `fai_now` carrying only 1,996
+distinct values across 56,668 rows because FAI is quantised to 5 decimals. The
+check was deliberately **not** changed — adding `date` to its key would make it
+pass and would also destroy the forward-fill detection it exists for. Someone
+other than the candidate's author should choose the fix.
+
+**3. Then, if the model is to be improved:** the fold detail says the problem is
+volatility, not features. Fold 2's target std is 2.35 against ~0.7 elsewhere. A
+heavier-tailed loss, a variance-aware baseline, or simply more passes are the
+honest levers. Do not tune against the reported folds.
+
+Historical context for the push that produced this — `agents/execution/SESSION_HANDOFF.lq.md`. In short: the interim
 lake-mean model can't clear climatology because the lake-mean series is noise
 around a slow mean and it has no change-drivers. The real leap is ADR 0004 D3 +
 D4 together — **per-pixel sampling** (BL-007: backfill the FAI grid across all
@@ -151,6 +189,29 @@ Kept current so another contributor can pick this up mid-flight.
 
 ## Blockers
 
+- **BL-037 — `check_no_fabricated_rows` misfires on the per-pixel table. OPEN.**
+  Inflation 1.011. Investigated and confirmed a false positive (EV-024c): 562
+  duplicate groups, none sharing a date, on a `fai_now` carrying only 1,996
+  distinct values across 56,668 rows, because FAI is quantised to 5 decimals.
+  Deliberately **not** fixed by the candidate's author — adding `date` to the
+  key makes it pass and destroys the forward-fill detection the check exists
+  for. Needs someone else's decision. Blocks a clean GATE-MODEL run, not the
+  verdict itself.
+- **BL-035, BL-036 — cleared 2026-09-10** (ADR-sf-0010, EV-024). `era5.py`'s
+  assembly dropped a column its own projection had already removed, so
+  `collect_era5.py` could never complete; `baselines.trivial_rule` crashed the
+  whole gate on a table with no `bloom_7d`; and the plumbing test assumed a
+  label was always present. All three fixed.
+- **WI-011 / BL-028 — CLEARED 2026-09-10.** The feature pipeline runs. A fresh
+  `.venv` from `pip install -r requirements.txt` imports `sentinelhub`,
+  `cdsapi`, `rasterio`, `xarray`, `netCDF4` and `torch`, and `collect_era5.py`
+  completed a full 13-month backfill. Note the earlier entry below was itself
+  stale: **no `.venv` existed in any of the six checkouts** when this session
+  started (EV-022).
+- **Definition of Done §7 — independent review of
+  `feat/per-pixel-retrain-verdict`. OPEN.** Not reviewed by anyone but its
+  author. Subagents were available and were not used; this is recorded as
+  outstanding, not silently downgraded.
 - **BL-029, BL-030, BL-031, BL-032 — cleared 2026-09-10** (ADR-lq-0009). The
   target-date embargo, the single-group climatology dispatch, the in-check
   inapplicability guard and the shape-agnostic plumbing tests are all in place;
@@ -170,6 +231,42 @@ Kept current so another contributor can pick this up mid-flight.
   by `lq` on 2026-09-10, and WI-008 and WI-009 are both done.
 
 ## Last Verified State
+
+### 2026-09-10, `feat/per-pixel-retrain-verdict` (per-pixel retrain)
+
+Environment rebuilt from scratch this session — **no `.venv`, no
+`data/raw/era5/`, no `frontend/node_modules` existed in the main checkout or any
+of the five worktrees**, contrary to `PARA_JUN.md` §1. Python 3.11.0,
+`torch 2.14.0+cpu` from a plain `pip install -r requirements.txt`.
+
+- `python -m pytest -q` — **80 passed, 8 xfailed** (was 78/8; +2 for the
+  early-stopping seam).
+- `python agents/harness_doctor.py --root . --strict` — 0 blockers, 0 warnings.
+  GATE-LOCAL needed a fresh `agents/local/CAPABILITIES.md`; that directory is
+  never committed, so **every new worktree must re-scan**.
+- `python agents/check_translations.py` — 5 checked, 0 problems.
+- `python scripts/collect_era5.py` — 13 months, **56 rows** to
+  `data/processed/era5_daily.csv`. Took ~50 min of CDS queue.
+- `python scripts/build_per_pixel_dataset.py` — 56,668 pairs, 1,866 pixels,
+  34 anchors. Blocks {0: 3625, 1: 11932, 2: 9977, 3: 31134}. ~30s, no API.
+- `python scripts/train_per_pixel.py` — **MAE 0.001999 ± 0.001501 |
+  persistence 0.001402 | climatology 0.001296 | beats both: false.**
+- **Candidate GATE-MODEL run** —
+  `ALGAEWATCH_DATASET=data/processed/per_pixel_anomaly_dataset.csv`
+  `ALGAEWATCH_METRICS=src/model/artifacts/per_pixel/metrics.json`
+  `python -m pytest -q tests/test_model_integrity.py` → **12 passed, 2 skipped,
+  3 failed.** The three failures are the two honest MI-1 losses plus the
+  documented `no_fabricated_rows` false positive (BL-037). No check crashes any
+  more. Note the runbook in `PARA_JUN.md` step 4 gives this command with a bare
+  filename; the variable takes a **repo-root-relative path**.
+- Dashboard verified running end to end: `uvicorn backend.app.main:app --port
+  8000` plus `npm run dev --prefix frontend`; all four views render real data,
+  `npm run build` clean in 2.17s. The Modelo view's BL-026 baselines card
+  displays correctly.
+- `src/model/artifacts/` (the backend's legacy model) is **unchanged except for
+  the `caveats` string**; every metric is byte-identical, verified key-wise.
+
+### Earlier
 
 - `python agents/harness_doctor.py --root . --strict` — 0 blockers, 0 warnings.
   Recorded in `agents/validation/DOCTOR.md`.

@@ -27,6 +27,9 @@ All run from the repository root and require no credentials.
 | EV-020 | 2026-09-10 | `lake_mean_fai` over all 56 dates spans **−0.008248 to +0.001999**, median 0.000162. The bloom threshold recorded in `src/model/artifacts/metrics.json` is **0.025916** | The threshold sits an order of magnitude above the lake-wide maximum, because it was calibrated on the contaminated station series (ADR-sf-0007). Applied to lake-wide data it labels every row negative, so `bloom_7d` is constant and the whole classification surface — two of the seven gate checks and four of five `ValidationMetrics` fields — becomes vacuous. A lake-wide retrain must recalibrate or report those figures as `null` under PR-3, never compute them from a constant label | `data/processed/fai_series_raw.csv`, `src/model/artifacts/metrics.json` |
 | EV-021 | 2026-09-10 | WI-005 built (ADR-lq-0009). `build_pairs` reproduces EV-019's 35 pairs; `min_prior` from 0 to 7 all keep **34** pairs (only the 2025-09-06 anchor drops — one prior pass, below the floor of 2), so the choice is insensitive — set to 5. The interim Ridge retrain scores **`mae_fai` 0.003919 ± 0.002135 (4-fold expanding CV)** against **persistence 0.001362** and **climatology 0.000775** on the same folds: `beats_baselines` is `{persistence: false, climatology: false}`. Every alpha (0.1–100) and feature subset tried loses to both. `precision/recall/F1/AUC` are `null` (EV-020). Pointing GATE-MODEL at the candidate table → **11 passed, 1 skipped, 4 xfailed**: passes `no_fabricated_rows` (PR-3) and `label_not_a_proxy` (inapplicable, one unit) | The lake-mean retrain is honest and does not beat its baselines, exactly as ADR 0004 anticipated. It fixes fabrication and the location-proxy label; it is not a shippable model. Climatology is the binding bar (ADR-sf-0008 D2) | `data/processed/lake_anomaly_dataset.csv`, `src/model/artifacts/lake_anomaly/metrics.json`, `src/features/lake_anomaly.py`, `src/model/lake_anomaly.py` |
 
+| EV-022 | 2026-09-10 | Scanning the main checkout and all five worktrees found **no `.venv`, no `data/raw/era5/`, and no `frontend/node_modules`** anywhere, contrary to `PARA_JUN.md` §1 and §2. The same handoff's test claim reproduced exactly: `pytest -q` → 78 passed, 8 xfailed once an environment was built. A plain `pip install -r requirements.txt` yields `torch 2.14.0+cpu`, not the `+cu126` of EV-017 nor the `+cu130` of `PARA_JUN.md` | Third recorded instance of a harness claim outrunning reality, and the first about local rather than repository state. A claim no committed artifact can witness must be written as a command to re-run, not as a fact. EV-017's CUDA figure describes a deliberate non-default install and does not reproduce from the documented command | `agents/local/CAPABILITIES.md`, `requirements.txt` |
+| EV-023 | 2026-09-10 | The per-pixel retrain (ADR-sf-0010), first model here trained on fully real inputs: 56 Sentinel-2 passes + 13 months of ERA5-Land, **56,668 honest pairs / 1,866 pixels / 34 anchors**, spatial blocks {0: 3625, 1: 11932, 2: 9977, 3: 31134}. **MAE 0.001999 ± 0.001501 vs persistence 0.001402 and climatology 0.001296 — `beats_baselines` {persistence: false, climatology: false}.** Per fold: 0.001444/0.004568/0.001192/0.000792 against climatology 0.001543/0.001882/0.000929/0.000828, so folds 1 and 4 **do** beat climatology. Fold 2 (2026-02-13..2026-03-08) carries target std **2.35** against ~0.7 elsewhere. q10–q90 coverage **0.8135** against nominal 0.80 | The retrain is honest and loses on the mean, but not uniformly: it beats climatology on two of four folds and fails hardest in the most volatile window, which is bloom season and the case that matters operationally. BL-016 is satisfied — all four regions have enough pixels. The interval calibration is a genuine positive result independent of the point forecast | `data/processed/per_pixel_anomaly_dataset.csv`, `src/model/artifacts/per_pixel/metrics.json` |
+| EV-024 | 2026-09-10 | Three defects found by running the runbook end to end. (a) `collect_era5.py` **could never complete**: `era5.py` assembly called `.drop(columns='month')` on a frame whose projection had already removed it, raising KeyError after all 13 months downloaded. (b) `baselines.trivial_rule` ran an unguarded `groupby(group_col)['bloom_7d']`, so a continuous-target table crashed the entire gate before any check reported. (c) `check_no_fabricated_rows` fails on the per-pixel table at inflation 1.011 — **false positive**: 562 duplicate groups, none sharing a date, on a `fai_now` with only **1,996 distinct values across 56,668 rows** because FAI is quantised to 5 decimals | (a) and (b) are fixed; (b) is the BL-030/BL-031 shape again — the `applicable=False` guard existed one layer above the code that actually ran. (c) is left unfixed on purpose: adding `date` to the key would make the candidate pass and would also destroy the forward-fill detection the check exists for, and a candidate must not be judged by checks rewritten to suit it | `src/features/era5.py`, `src/model/baselines.py`, `src/model/integrity.py` |
 ## Reproduction
 
 EV-001, EV-002, EV-003, EV-004, EV-005, EV-009 — audit of the training table:
@@ -254,6 +257,38 @@ difference between the original 2026-09-04 run and the current environment
 (1.7.2). Neither figure changes any conclusion — the regressor still loses to
 persistence at 0.00603, by a wider margin — but both are recorded here rather
 than silently superseded, per the rule below.
+
+
+EV-022, EV-023, EV-024 — the per-pixel retrain. EV-022's ERA5 step needs
+`CDS_TOKEN`; everything after it runs from committed data with no credentials:
+
+```bash
+python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt
+.venv/Scripts/python -c "import torch; print(torch.__version__)"   # EV-022
+
+.venv/Scripts/python scripts/collect_era5.py            # ~50 min of CDS queue
+.venv/Scripts/python scripts/build_per_pixel_dataset.py # ~30s, no API
+.venv/Scripts/python scripts/train_per_pixel.py         # EV-023, the verdict
+
+ALGAEWATCH_DATASET=data/processed/per_pixel_anomaly_dataset.csv \
+ALGAEWATCH_METRICS=src/model/artifacts/per_pixel/metrics.json \
+.venv/Scripts/python -m pytest -q tests/test_model_integrity.py
+```
+
+EV-024(c) — the quantisation that makes `no_fabricated_rows` misfire:
+
+```python
+import pandas as pd
+df = pd.read_csv('data/processed/per_pixel_anomaly_dataset.csv')
+key = ['station_id', 'fai_now', 'fai_future']
+dup = df[df.duplicated(key, keep=False)]
+g = dup.groupby(key)
+print('rows', len(df), 'unique on key', len(df.drop_duplicates(key)))
+print('dup groups sharing a date:', sum(1 for _, x in g if x['date'].nunique() == 1))
+print('dup groups spanning dates:', sum(1 for _, x in g if x['date'].nunique() > 1))
+print('distinct fai_now values:', df.fai_now.nunique(), 'of', len(df))
+print('unique on date+horizon:', len(df.drop_duplicates(['station_id','date','horizon_days'])))
+```
 
 ## Rules
 

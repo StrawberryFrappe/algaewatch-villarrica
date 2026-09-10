@@ -1,3 +1,35 @@
+> ## ⚠️ SUPERSEDIDO — 2026-09-10
+>
+> **El runbook de abajo se ejecutó completo.** El resultado, las decisiones y el
+> estado real están en:
+>
+> - `agents/RUN_STATE.md` / `.es.md` — estado actual y qué sigue
+> - `agents/adrs/sf-0010-per-pixel-handoff-decisions.md` — las 2 preguntas de §3, decididas
+> - `SYSTEM_OVERVIEW.md` / `.es.md` — el sistema entero explicado de cero
+> - Rama `feat/per-pixel-retrain-verdict`
+>
+> **El veredicto:** MAE 0,001999 contra persistencia 0,001402 y climatología
+> 0,001296. Pierde contra ambas. 2 de 4 folds sí superan a la climatología; el
+> fold 2 (la ventana más volátil, fines de verano) la arrastra.
+>
+> **Tres cosas de este documento estaban equivocadas** — leerlas antes de
+> confiar en el resto:
+>
+> 1. **§1 y §2 describen un entorno que no existía.** No había `.venv`, ni
+>    `data/raw/era5/`, ni `frontend/node_modules` en ninguno de los seis
+>    checkouts. El backfill de ERA5 arrancó de cero, no desde el mes 4.
+> 2. **`collect_era5.py` no podía completarse nunca** — bug de `KeyError` en el
+>    ensamblado final (BL-035a). Corregido.
+> 3. **El comando del paso 4 está mal.** `ALGAEWATCH_DATASET` toma una ruta
+>    relativa a la raíz del repo, no un nombre de archivo pelado:
+>    `ALGAEWATCH_DATASET=data/processed/per_pixel_anomaly_dataset.csv`.
+>
+> Lo que sí era exacto: el claim de tests (78 passed / 8 xfailed) reprodujo
+> tal cual, y el diagnóstico de §3 sobre el pin de torch y el CSV de la grilla
+> era el correcto.
+
+---
+
 # Para Jun — estado del push per-píxel (2026-09-10)
 
 Escrito tras quedarme sin tokens a mitad del trabajo. Es un checkpoint de

@@ -1,6 +1,6 @@
 ---
 source: agents/RUN_STATE.md
-source_sha: 73d8f1f10008fe888dcad541c98c4f0c74712934
+source_sha: 67ed53dff427325bbff08dbe8dc3b8ab6da43763
 source_sha_algo: git-blob-sha1
 translated: 2026-09-10
 translator: agent
@@ -9,6 +9,27 @@ translator: agent
 # Estado de Ejecución
 
 ## Fase Actual
+
+**El reentrenamiento per-píxel está construido, entrenado y medido (2026-09-10,
+ADR-sf-0010), en la rama `feat/per-pixel-retrain-verdict` — todavía sin mergear
+y SIN revisión independiente.** Es el primer modelo de este repositorio entrenado
+con insumos reales de punta a punta: 56 pasadas Sentinel-2, 13 meses de
+ERA5-Land, ninguna fila rellenada.
+
+**Pierde contra ambas líneas base.** MAE 0,001999 ± 0,001501 contra persistencia
+0,001402 y climatología 0,001296 — el resultado reportado bajo la regla MI-1, no
+un número a mejorar tuneando. Dos de cuatro folds *sí* superan a la climatología;
+el fold 2 (2026-02-13..2026-03-08, la ventana más volátil de la serie y la que
+importa operativamente) es catastrófico con 0,004568 y arrastra la media sin
+ponderar. El intervalo q10–q90 está bien calibrado: cobertura 0,8135 contra un
+nominal de 0,80.
+
+También en esa rama: las dos preguntas abiertas de `PARA_JUN.md` §3 quedaron
+decididas (ADR-sf-0010 D1/D2), y se corrigieron tres defectos encontrados al
+correr el runbook de punta a punta — `collect_era5.py` nunca podía completarse,
+`baselines.trivial_rule` hacía caer toda la verificación sobre una tabla de
+objetivo continuo, y un test de plomería asumía que siempre había etiqueta. Ver
+"Bloqueadores" para lo que sigue abierto.
 
 Harness aceptado. Implementación en curso en la mitad de `sf`. **WI-004 está
 terminado** — las líneas base y las verificaciones de integridad del modelo son
@@ -129,8 +150,30 @@ per-píxel + clima — está en `agents/execution/SESSION_HANDOFF.lq.md`.
 
 ## Próxima Acción
 
-**El próximo empujón de modelado — reentrenar para superar *ambas* líneas base —
-está briefeado por completo en `agents/execution/SESSION_HANDOFF.lq.md`.** En
+**1. Revisar `feat/per-pixel-retrain-verdict` de forma independiente antes de
+mergear.** Definición de Hecho §7. Nadie más que su autor la revisó, y toca
+código de verificación (`src/model/baselines.py`,
+`tests/test_model_integrity.py`), que es justo la categoría que produjo dos
+falsos pases en WI-005. Registrar el veredicto en `agents/reviews/20260910/` y en
+`reviews_index.md`.
+
+**2. Decidir qué hacer con `check_no_fabricated_rows` (BL-037).** Falla sobre la
+tabla per-píxel con inflación 1,011. Investigado: es un falso positivo. 562
+grupos duplicados, *ninguno* compartiendo fecha, sobre un `fai_now` que tiene
+solo 1.996 valores distintos en 56.668 filas porque el FAI está cuantizado a 5
+decimales. La verificación **no** se tocó a propósito — agregarle `date` a su
+clave la haría pasar y además destruiría la detección de forward-fill para la
+que existe. La corrección la debe elegir alguien que no sea el autor del
+candidato.
+
+**3. Después, si se quiere mejorar el modelo:** el detalle por fold dice que el
+problema es volatilidad, no variables. El desvío del objetivo en el fold 2 es
+2,35 contra ~0,7 en el resto. Una pérdida de colas más pesadas, una línea base
+consciente de la varianza, o simplemente más pasadas son las palancas honestas.
+No tunear contra los folds reportados.
+
+Contexto histórico del empujón que produjo esto —
+`agents/execution/SESSION_HANDOFF.lq.md`. En
 resumen: el modelo interino de media de lago no puede pasar a la climatología
 porque la serie de media de lago es ruido alrededor de una media que decae lento
 y no tiene change-drivers. El salto real es ADR 0004 D3 + D4 juntos — **muestreo
@@ -180,6 +223,30 @@ vuelo.
 
 ## Bloqueadores
 
+- **BL-037 — `check_no_fabricated_rows` se dispara mal sobre la tabla
+  per-píxel. ABIERTO.** Inflación 1,011. Investigado y confirmado falso
+  positivo (EV-024c): 562 grupos duplicados, ninguno compartiendo fecha, sobre
+  un `fai_now` que tiene solo 1.996 valores distintos en 56.668 filas, porque el
+  FAI está cuantizado a 5 decimales. **No** se corrigió a propósito por parte
+  del autor del candidato — agregarle `date` a la clave lo hace pasar y destruye
+  la detección de forward-fill para la que existe. Necesita la decisión de otra
+  persona. Bloquea una corrida limpia de GATE-MODEL, no el veredicto en sí.
+- **BL-035, BL-036 — resueltos 2026-09-10** (ADR-sf-0010, EV-024). El ensamblado
+  de `era5.py` descartaba una columna que su propia proyección ya había sacado,
+  así que `collect_era5.py` nunca podía completarse; `baselines.trivial_rule`
+  hacía caer toda la verificación sobre una tabla sin `bloom_7d`; y el test de
+  plomería asumía que siempre había etiqueta. Los tres corregidos.
+- **WI-011 / BL-028 — RESUELTO 2026-09-10.** El pipeline de features corre. Un
+  `.venv` nuevo desde `pip install -r requirements.txt` importa `sentinelhub`,
+  `cdsapi`, `rasterio`, `xarray`, `netCDF4` y `torch`, y `collect_era5.py`
+  completó un backfill entero de 13 meses. Ojo: la entrada anterior estaba a su
+  vez desactualizada: **no existía ningún `.venv` en ninguno de los seis
+  checkouts** cuando arrancó esta sesión (EV-022).
+- **Definición de Hecho §7 — revisión independiente de
+  `feat/per-pixel-retrain-verdict`. ABIERTO.** Nadie más que su autor la
+  revisó. Había subagentes disponibles y no se usaron; queda registrado como
+  pendiente, no como degradado en silencio.
+
 - **BL-029, BL-030, BL-031, BL-032 — liberados el 2026-09-10** (ADR-lq-0009). El
   embargo a la fecha del objetivo, el despacho a climatología en un solo grupo,
   la guarda de inaplicabilidad dentro de la verificación y los tests de
@@ -202,6 +269,45 @@ vuelo.
   por `lq` el 2026-09-10, y WI-008 y WI-009 están ambos terminados.
 
 ## Último Estado Verificado
+
+### 2026-09-10, `feat/per-pixel-retrain-verdict` (reentrenamiento per-píxel)
+
+Entorno reconstruido desde cero esta sesión — **no existía `.venv`, ni
+`data/raw/era5/`, ni `frontend/node_modules` en el checkout principal ni en
+ninguno de los cinco worktrees**, contrario a `PARA_JUN.md` §1. Python 3.11.0,
+`torch 2.14.0+cpu` desde un `pip install -r requirements.txt` normal.
+
+- `python -m pytest -q` — **80 pasados, 8 xfailed** (era 78/8; +2 por la costura
+  de early stopping).
+- `python agents/harness_doctor.py --root . --strict` — 0 bloqueadores, 0
+  advertencias. GATE-LOCAL necesitó un `agents/local/CAPABILITIES.md` nuevo; ese
+  directorio nunca se commitea, así que **cada worktree nuevo tiene que
+  re-escanear**.
+- `python agents/check_translations.py` — 5 revisados, 0 problemas.
+- `python scripts/collect_era5.py` — 13 meses, **56 filas** a
+  `data/processed/era5_daily.csv`. Tardó ~50 min de cola de CDS.
+- `python scripts/build_per_pixel_dataset.py` — 56.668 pares, 1.866 píxeles, 34
+  anclas. Bloques {0: 3625, 1: 11932, 2: 9977, 3: 31134}. ~30s, sin API.
+- `python scripts/train_per_pixel.py` — **MAE 0,001999 ± 0,001501 |
+  persistencia 0,001402 | climatología 0,001296 | supera ambas: false.**
+- **Corrida de GATE-MODEL del candidato** —
+  `ALGAEWATCH_DATASET=data/processed/per_pixel_anomaly_dataset.csv`
+  `ALGAEWATCH_METRICS=src/model/artifacts/per_pixel/metrics.json`
+  `python -m pytest -q tests/test_model_integrity.py` → **12 pasados, 2
+  saltados, 3 fallados.** Los tres fallos son las dos pérdidas honestas de MI-1
+  más el falso positivo documentado de `no_fabricated_rows` (BL-037). Ninguna
+  verificación se cae más. Ojo: el runbook de `PARA_JUN.md` paso 4 da este
+  comando con un nombre de archivo pelado; la variable toma una **ruta relativa
+  a la raíz del repo**.
+- Dashboard verificado corriendo de punta a punta: `uvicorn
+  backend.app.main:app --port 8000` más `npm run dev --prefix frontend`; las
+  cuatro vistas renderizan datos reales, `npm run build` limpio en 2,17s. La
+  tarjeta de baselines de BL-026 en la vista Modelo se muestra bien.
+- `src/model/artifacts/` (el modelo legacy del backend) está **sin cambios salvo
+  el string `caveats`**; todas las métricas son idénticas byte a byte, verificado
+  clave por clave.
+
+### Anteriores
 
 - `python agents/harness_doctor.py --root . --strict` — 0 bloqueadores, 0
   advertencias. Registrado en `agents/validation/DOCTOR.md`.
