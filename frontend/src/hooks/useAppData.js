@@ -97,6 +97,12 @@ export function useAppData() {
   const activeStationId = hover ?? pinned;
   const activeStation = stationRows.find((s) => s.id === activeStationId) ?? null;
 
+  // Real date of the last Sentinel-2 pass (from the risk overlay / grid), as
+  // opposed to selectedDate, which the slider extends up to "today" over
+  // forward-filled values. BL-013: surfaced so views can flag projected values.
+  const lastPassDate = risk?.overlay?.updated_at ?? riskGrid?.date ?? null;
+  const selectedIsProjected = !!(lastPassDate && selectedDate && selectedDate > lastPassDate);
+
   return {
     view, setView,
     day, setDay,
@@ -113,6 +119,8 @@ export function useAppData() {
     riskGrid,
     forecast,
     metrics,
+    lastPassDate,
+    selectedIsProjected,
     loadError,
     isReady: dates.length > 0 && risk !== null,
   };

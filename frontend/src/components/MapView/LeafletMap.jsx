@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { CircleMarker, MapContainer, Marker, Popup, ScaleControl, TileLayer, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { HeatLayer } from './HeatLayer';
+import { LakeMask } from './LakeMask';
 import { StationCardContent } from './StationCard';
 import { riskPresentation } from '../../utils/risk';
 
@@ -27,7 +28,7 @@ function pulseIcon(hex) {
   });
 }
 
-function StationMarker({ station, hover, pinned, onEnter, onLeave, onClick }) {
+function StationMarker({ station, hover, pinned, onEnter, onLeave, onClick, lastPassDate, projectionGap }) {
   const markerRef = useRef(null);
   const { hex } = riskPresentation(station.level);
   const isActive = hover === station.id || pinned === station.id;
@@ -47,7 +48,7 @@ function StationMarker({ station, hover, pinned, onEnter, onLeave, onClick }) {
         ref={markerRef}
         center={[station.lat, station.lng]}
         radius={isActive ? 11 : 9}
-        pathOptions={{ color: 'rgba(0,0,0,0.85)', weight: 2.4, fillColor: hex, fillOpacity: 1 }}
+        pathOptions={{ color: '#FFFFFF', weight: 2.5, fillColor: hex, fillOpacity: 1 }}
         eventHandlers={{
           mouseover: () => onEnter(station.id),
           mouseout: onLeave,
@@ -58,14 +59,14 @@ function StationMarker({ station, hover, pinned, onEnter, onLeave, onClick }) {
           {station.code} {station.name.toUpperCase()}
         </Tooltip>
         <Popup autoPan={false} closeButton={false} offset={[0, -8]} className="aw-popup">
-          <StationCardContent station={station} />
+          <StationCardContent station={station} lastPassDate={lastPassDate} projectionGap={projectionGap} />
         </Popup>
       </CircleMarker>
     </>
   );
 }
 
-export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave, onClick }) {
+export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave, onClick, lastPassDate, projectionGap }) {
   const heatPoints = riskGrid?.points ?? [];
 
   return (
@@ -93,6 +94,7 @@ export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave
       />
       <ScaleControl position="bottomright" imperial={false} />
       <HeatLayer points={heatPoints} />
+      <LakeMask />
       {stations.map((s) => (
         <StationMarker
           key={s.id}
@@ -102,6 +104,8 @@ export function LeafletMap({ stations, riskGrid, hover, pinned, onEnter, onLeave
           onEnter={onEnter}
           onLeave={onLeave}
           onClick={onClick}
+          lastPassDate={lastPassDate}
+          projectionGap={projectionGap}
         />
       ))}
     </MapContainer>

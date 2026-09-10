@@ -1,51 +1,72 @@
-/* Design tokens from design_handoff_algaewatch_villarrica/README.md — keep exact. */
+/* Light pastel theme. Departs from the design handoff's dark spec — see
+   ADR-lq-0008. Variable names are unchanged from the dark token set so
+   components keep working; only the values flip. */
 :root {
-  --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, sans-serif;
+  color-scheme: light;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 
-  /* Color */
-  --color-text-primary: #FFFFFF;
-  --color-text: #F5F5F7;
-  --color-text-secondary: #E5E5EA;
-  --color-text-tertiary: #C7C7CC;
-  --color-text-tertiary-2: #AEAEB2;
-  --color-text-label: #98989D;
-  --color-text-dim: #8E8E93;
-  --color-accent: #0A84FF;
-  --color-accent-light: #64D2FF;
+  /* Ink — soft near-black on light, never pure #000 */
+  --color-text-primary: #24303F;
+  --color-text: #2A3644;
+  --color-text-secondary: #4A5766;
+  --color-text-tertiary: #66727F;
+  --color-text-tertiary-2: #7C8894;
+  --color-text-label: #8A95A1;
+  --color-text-dim: #98A2AD;
 
-  /* Risk scale — reserved exclusively for risk, never used for other roles */
-  --risk-muy-bajo: #64D2FF;
-  --risk-bajo: #30D158;
-  --risk-medio: #FF9F0A;
-  --risk-alto: #FF453A;
+  /* Brand — muted periwinkle from the lake/sky, readable on white */
+  --color-accent: #5B77C2;
+  --color-accent-light: #8AA0DA;
+  --color-accent-ink: #43589A;      /* for text/links needing 4.5:1 on white */
+
+  /* Risk scale — reserved exclusively for risk. Light-mode pastel sequential
+     ramp (peach → dusty terracotta), monotonic OKLCH lightness, colourblind-safe
+     under protan/deutan/tritan (worst adjacent ΔE 8.5). See utils/risk.js and
+     ADR-lq-0008. */
+  --risk-muy-bajo: #EAC49B;
+  --risk-bajo: #E0A074;
+  --risk-medio: #C9765A;
+  --risk-alto: #A05445;
+  --risk-alto-ink: #8A463B;          /* darker step for small text on white */
+
+  /* Liveness indicator — its own tokens, pastel green / amber */
+  --status-live: #5FA980;
+  --status-stale: #D19A5C;
 
   /* Surfaces */
-  --surface-panel: rgba(28, 28, 30, 0.58);
-  --surface-panel-soft: rgba(28, 28, 30, 0.55);
-  --surface-map-canvas: rgba(22, 22, 24, 0.45);
-  --surface-card: rgba(58, 58, 60, 0.30);
-  --surface-popup: rgba(28, 28, 30, 0.74);
-  --surface-segmented-track: rgba(118, 118, 128, 0.24);
-  --surface-segmented-active: rgba(120, 120, 128, 0.36);
-  --hairline: rgba(255, 255, 255, 0.12);
-  --hairline-soft: rgba(255, 255, 255, 0.10);
-  --hairline-strong: rgba(255, 255, 255, 0.24);
-  --progress-track: rgba(255, 255, 255, 0.10);
-  --selection: rgba(10, 132, 255, 0.32);
+  --surface-page: #F5F7FA;
+  --surface-panel: #FFFFFF;
+  --surface-panel-soft: #FFFFFF;
+  --surface-map-canvas: #EAEFF4;
+  --surface-card: #FBFCFD;
+  --surface-popup: #FFFFFF;
+  --surface-segmented-track: #EAEEF3;
+  --surface-segmented-active: #FFFFFF;
+  --surface-tint: #EEF2F8;           /* faint brand wash */
+  --hairline: #E3E8EE;
+  --hairline-soft: #EBEFF4;
+  --hairline-strong: #D3DAE2;
+  --progress-track: #E9EDF2;
+  --selection: rgba(91, 119, 194, 0.22);
 
   /* Radii */
   --radius-pill-seg: 8px;
   --radius-row: 10px;
-  --radius-chip: 12px;
-  --radius-card: 14px;
-  --radius-panel: 16px;
+  --radius-chip: 10px;
+  --radius-card: 12px;
+  --radius-panel: 14px;
   --radius-pill: 999px;
 
-  /* Shadows */
-  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.09);
-  --shadow-content: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shadow-popup: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.35);
+  /* Shadows — soft and shallow, flat-design scale */
+  --shadow-panel: 0 1px 2px rgba(20, 32, 51, 0.06), 0 1px 1px rgba(20, 32, 51, 0.04);
+  --shadow-content: 0 1px 3px rgba(20, 32, 51, 0.07), 0 1px 2px rgba(20, 32, 51, 0.04);
+  --shadow-popup: 0 8px 24px rgba(20, 32, 51, 0.14), 0 2px 6px rgba(20, 32, 51, 0.08);
+  --shadow-pill: 0 1px 2px rgba(20, 32, 51, 0.10);
+
+  /* Layout */
+  --container-max: 1280px;
+  --gutter: 16px;
+  --topbar-h: 60px;
 }
 
 * { box-sizing: border-box; }
@@ -53,17 +74,18 @@
 html, body, #root {
   margin: 0;
   padding: 0;
-  height: 100%;
-  background: #000000;
+  min-height: 100%;
+  background: var(--surface-page);
 }
 
 body, input, button {
   font-family: var(--font-family);
   font-variant-numeric: tabular-nums;
+  color: var(--color-text);
 }
 
-a { color: var(--color-accent); text-decoration: none; }
-a:hover { color: var(--color-accent-light); }
+a { color: var(--color-accent-ink); text-decoration: none; }
+a:hover { color: var(--color-accent); }
 
 ::selection { background: var(--selection); }
 
@@ -71,24 +93,22 @@ input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
-  /* background is a dynamic fill/track gradient set inline per current value */
 }
 input[type='range']::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 999px;
-  /* --range-pct is set inline per input, from the current slider value */
   background: linear-gradient(
     to right,
     var(--color-accent) 0%,
     var(--color-accent) var(--range-pct, 0%),
-    rgba(255, 255, 255, 0.14) var(--range-pct, 0%),
-    rgba(255, 255, 255, 0.14) 100%
+    var(--progress-track) var(--range-pct, 0%),
+    var(--progress-track) 100%
   );
 }
 input[type='range']::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--progress-track);
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -98,7 +118,8 @@ input[type='range']::-webkit-slider-thumb {
   height: 16px;
   border-radius: 50%;
   background: var(--color-accent);
-  border: 2px solid rgba(0, 0, 0, 0.85);
+  border: 2px solid #FFFFFF;
+  box-shadow: var(--shadow-pill);
   cursor: pointer;
 }
 input[type='range']::-moz-range-thumb {
@@ -106,7 +127,8 @@ input[type='range']::-moz-range-thumb {
   height: 16px;
   border-radius: 50%;
   background: var(--color-accent);
-  border: 2px solid rgba(0, 0, 0, 0.85);
+  border: 2px solid #FFFFFF;
+  box-shadow: var(--shadow-pill);
   cursor: pointer;
 }
 input[type='range']::-moz-range-progress {
@@ -118,13 +140,13 @@ input[type='range']::-moz-range-progress {
 button { font-family: inherit; }
 
 @keyframes aw-pulse {
-  0% { r: 13; opacity: 0.8; }
-  70%, 100% { r: 32; opacity: 0; }
+  0% { r: 13; opacity: 0.7; }
+  70%, 100% { r: 30; opacity: 0; }
 }
 
 @keyframes aw-live {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+  50% { opacity: 0.25; }
 }
 
 @media (prefers-reduced-motion: reduce) {

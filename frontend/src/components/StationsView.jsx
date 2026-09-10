@@ -1,11 +1,18 @@
 import { formatDateEs, numEs } from '../utils/format';
 import { riskPresentation } from '../utils/risk';
+import { passAgeLabel, projectionGapDays } from '../utils/staleness';
 
-export function StationsView({ stationRows, selectedDate, hover, setHover }) {
+export function StationsView({ stationRows, selectedDate, hover, setHover, lastPassDate, selectedIsProjected }) {
+  const gap = projectionGapDays(lastPassDate, selectedDate);
   return (
     <div className="view-panel glass-content">
       <div className="view-eyebrow">ESTACIONES DE MONITOREO · {selectedDate ? formatDateEs(selectedDate) : ''}</div>
       <div className="view-title">Mediciones in situ y riesgo por estación</div>
+      <div style={{ fontSize: 11, color: selectedIsProjected ? '#8A5A2B' : 'var(--color-text-dim)', marginTop: 6 }}>
+        {selectedIsProjected
+          ? `Riesgo y FAI proyectados +${gap} d desde la última pasada satelital (${passAgeLabel(lastPassDate)}). Sin medición nueva.`
+          : `FAI de la pasada satelital ${passAgeLabel(lastPassDate)}. In situ (temp/pH/O₂/viento) pendiente de datos SNIA.`}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginTop: 16 }}>
         {stationRows.map((s) => {
           const { hex } = riskPresentation(s.level);
@@ -13,13 +20,16 @@ export function StationsView({ stationRows, selectedDate, hover, setHover }) {
             <div
               key={s.id}
               className="station-card"
-              style={hover === s.id ? { background: 'rgba(10,132,255,0.10)' } : undefined}
+              style={hover === s.id ? { background: 'var(--surface-tint)' } : undefined}
               onMouseEnter={() => setHover(s.id)}
               onMouseLeave={() => setHover(null)}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontSize: 15, fontWeight: 600, color: '#FFFFFF', letterSpacing: -0.3 }}>{s.name}</span>
-                <span style={{ fontSize: 13, color: hex }}>{s.risk}/100</span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: -0.3 }}>{s.name}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: hex }} />
+                  {s.risk}/100
+                </span>
               </div>
               <div style={{ fontSize: 9.5, letterSpacing: 0.6, color: 'var(--color-text-label)', marginTop: 3 }}>
                 {s.code} · {s.sector.toUpperCase()}
@@ -33,7 +43,12 @@ export function StationsView({ stationRows, selectedDate, hover, setHover }) {
                 <Field label="OXÍGENO DISUELTO" value={s.dissolved_oxygen_mgl != null ? `${numEs(s.dissolved_oxygen_mgl, 1)} mg/L` : '—'} />
                 <Field label="FAI / CLOROFILA" value={s.fai != null ? numEs(s.fai, 3) : '—'} />
                 <Field label="VIENTO MEDIO" value={s.wind_speed_kmh != null ? `${numEs(s.wind_speed_kmh, 1)} km/h` : '—'} />
-                <Field label="ÚLTIMA MEDICIÓN" value={s.date ? formatDateEs(s.date) : '—'} small />
+                <Field
+                  label="ÚLTIMA PASADA"
+                  value={lastPassDate ? formatDateEs(lastPassDate) : '—'}
+                  hint={selectedIsProjected && gap != null ? `proyección +${gap} d` : null}
+                  small
+                />
               </div>
             </div>
           );
@@ -43,11 +58,14 @@ export function StationsView({ stationRows, selectedDate, hover, setHover }) {
   );
 }
 
-function Field({ label, value, small }) {
+function Field({ label, value, hint, small }) {
   return (
     <div>
       <div style={{ fontSize: 9.5, letterSpacing: 0.6, color: 'var(--color-text-label)' }}>{label}</div>
-      <div style={{ fontSize: small ? 13 : 16, color: small ? 'var(--color-text-secondary)' : '#FFFFFF', paddingTop: small ? 3 : 0 }}>{value}</div>
+      <div style={{ fontSize: small ? 13 : 16, color: small ? 'var(--color-text-secondary)' : 'var(--color-text-primary)', paddingTop: small ? 3 : 0 }}>
+        {value}
+        {hint && <span style={{ fontSize: 10, color: '#8A5A2B', marginLeft: 6 }}>· {hint}</span>}
+      </div>
     </div>
   );
 }

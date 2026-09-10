@@ -11,6 +11,30 @@
   border-radius: var(--radius-card);
   background: var(--surface-card);
 }
+
+/* Mandated TRL-2 maturity seal (BL-019 / PR-4). Reads as a stamp on the whole
+   Modelo view, not a caption buried in a card. */
+.trl-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 5px 12px;
+  border: 1px solid #E4C9A6;
+  border-radius: var(--radius-pill);
+  background: #FBF3E6;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #8A5A2B;
+}
+.trl-seal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #C98A3C;
+}
 .model-card-eyebrow {
   font-size: 9.5px;
   letter-spacing: 0.6px;

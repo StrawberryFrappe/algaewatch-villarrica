@@ -1,10 +1,20 @@
 import { formatDateEs, numEs } from '../utils/format';
 
+// Mandated maturity seal (design handoff §"Datos", §"VALIDACIÓN"). PR-4 requires
+// this exact text to be preserved and visible. It is fixed UI chrome, not run
+// data — kept here as a literal, the same way the AI-panel disclaimer lives in
+// backend/app/routers/forecast.py. `metrics.disclaimer` carries the extra,
+// run-specific caveats (BL-019: the seal and the caveats are different texts and
+// both belong).
+const TRL_SEAL = 'TRL 2 · resultados no validados en campo';
+
+// Muted confusion-matrix accents for the light theme (ADR-lq-0008). Not the risk
+// ramp — these label matrix cells. Paired with the text label, never colour alone.
 const CM_ROWS = [
-  { key: 'true_positives', label: 'Verdaderos positivos', tone: '#30D158' },
-  { key: 'false_positives', label: 'Falsos positivos', tone: '#FF9F0A' },
-  { key: 'false_negatives', label: 'Falsos negativos', tone: '#FF453A' },
-  { key: 'true_negatives', label: 'Verdaderos negativos', tone: '#0A84FF' },
+  { key: 'true_positives', label: 'Verdaderos positivos', tone: '#3F7E5C' },
+  { key: 'false_positives', label: 'Falsos positivos', tone: '#B07A2E' },
+  { key: 'false_negatives', label: 'Falsos negativos', tone: '#9A4F3B' },
+  { key: 'true_negatives', label: 'Verdaderos negativos', tone: '#43589A' },
 ];
 
 export function ModelView({ metrics }) {
@@ -23,6 +33,10 @@ export function ModelView({ metrics }) {
     <div className="view-panel glass-content">
       <div className="view-eyebrow">MODELO PREDICTIVO · {metrics.version}</div>
       <div className="view-title">Gradient Boosting + índice FAI Sentinel-2</div>
+      <div className="trl-seal" role="note">
+        <span className="trl-seal-dot" aria-hidden="true" />
+        {TRL_SEAL}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 16 }}>
         <div className="model-card">
           <div className="model-card-eyebrow">MATRIZ DE CONFUSIÓN · UMBRAL FAI ≥ {numEs(metrics.fai_alert_threshold, 4)}</div>
@@ -45,7 +59,7 @@ export function ModelView({ metrics }) {
                   <span>{v.feature}</span><span style={{ color: 'var(--color-text-tertiary-2)' }}>{v.importance_pct}%</span>
                 </div>
                 <div style={{ height: 5, borderRadius: 999, background: 'var(--progress-track)', marginTop: 5, overflow: 'hidden' }}>
-                  <div style={{ height: 5, borderRadius: 999, width: `${v.importance_pct}%`, background: '#0A84FF' }} />
+                  <div style={{ height: 5, borderRadius: 999, width: `${v.importance_pct}%`, background: 'var(--color-accent)' }} />
                 </div>
               </div>
             ))}
@@ -61,6 +75,7 @@ export function ModelView({ metrics }) {
             Horizonte de predicción: {metrics.validation.horizon_days} días
           </div>
           <div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--color-text-dim)', marginTop: 10 }}>
+            <strong style={{ color: 'var(--color-text-tertiary-2)', fontWeight: 600 }}>{TRL_SEAL}.</strong>{' '}
             {metrics.disclaimer}
           </div>
         </div>
@@ -96,9 +111,9 @@ export function ModelFooter({ metrics }) {
         {CHIPS.map((c) => (
           <div key={c.label} className="metric-chip">
             <span style={{ fontSize: 8.5, letterSpacing: 0.4, color: 'var(--color-text-label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
-            <span style={{ fontSize: 17, lineHeight: 1, color: '#FFFFFF' }}>{c.value}</span>
+            <span style={{ fontSize: 17, lineHeight: 1, fontWeight: 600, color: 'var(--color-text-primary)' }}>{c.value}</span>
             <div style={{ height: 4, borderRadius: 999, background: 'var(--progress-track)', overflow: 'hidden' }}>
-              <div style={{ height: 4, borderRadius: 999, width: `${c.pct}%`, background: 'linear-gradient(90deg,#0A84FF,#30D158)' }} />
+              <div style={{ height: 4, borderRadius: 999, width: `${c.pct}%`, background: 'var(--color-accent)' }} />
             </div>
             <span style={{ fontSize: 8.5, lineHeight: 1.3, color: 'var(--color-text-dim)' }}>{c.note}</span>
           </div>
