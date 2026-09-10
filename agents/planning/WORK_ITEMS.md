@@ -15,9 +15,10 @@ an agent.
 | WI-005 | pending | Honest retrain on station data: continuous target, local-baseline anomaly, chronological splits with embargo (BL-003 to BL-006) | `sf` | Metrics reported beside both baselines |
 | WI-006 | done | Upgrade the mounted harness to the revised kernel (BL-020) | `sf` | Kernel `5dee2cf` recorded in `RUN_STATE.md`; doctor run in `agents/validation/DOCTOR.md`; review in `agents/reviews/20260909/harness_upgrade_review.sf.md` |
 | WI-007 | pending | Hand the repository back: deliver `agents/execution/HANDOFF.md`, confirm `lq` can build his local half and run both checks | `sf` | `lq` confirms receipt and a passing `harness_doctor.py` run on his machine |
-| WI-008 | pending | Settle ADR 0003 — Leaflet stands, or Mapbox returns | `lq` | ADR 0003 status moves from provisional to accepted or superseded |
-| WI-009 | pending | Frontend credibility pass: BL-009, BL-010, BL-013, BL-019, BL-021 | `lq` | Screenshots of the running app, plus a colourblind simulation check for BL-009 |
+| WI-008 | done | Settle ADR 0003 — Leaflet stands, or Mapbox returns | `lq` | ADR 0003 status moved from provisional to Accepted on 2026-09-10; Leaflet confirmed by `lq` |
+| WI-009 | done | Frontend credibility pass: BL-009, BL-010, BL-013, BL-019, BL-021 | `lq` | Done 2026-09-10. `agents/reviews/20260910/frontend_credibility_pass.lq.md` + screenshots; palette CVD validation in that review; deviations in ADR-lq-0007 |
 | WI-010 | blocked | Install PyTorch, or record that BL-008 cannot proceed | user | `python -c "import torch"` succeeds on the machine that will run BL-008 |
+| WI-011 | done | Light pastel theme + topbar + contained layout (owner redirect 2026-09-10). Focused pass, not a per-view redesign | `lq` | Done 2026-09-10. ADR-lq-0008; `agents/reviews/20260910/light-theme-pass_screens/`. Light-mode risk ramp re-validated. Pending: real `logo.png`, sub-768px QA |
 
 ## Dependencies
 
